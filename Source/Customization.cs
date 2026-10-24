@@ -14,6 +14,11 @@ namespace DualDiscord {
   public bool SyncAudio{get;set;}
   public bool SyncGraphics{get;set;}
   public bool CopyThemes{get;set;}
+  public bool CopyVencordPlugins{get;set;}
+  public bool CopyVencordPluginSettings{get;set;}
+  public bool CopyVencordPreferences{get;set;}
+  public bool CopyVencordAppearance{get;set;}
+  public bool CopyQuickCss{get;set;}
   public Customization(){SeparateTray=true;SeparateTaskbar=true;CloseAction="Tray";AutoCheckUpdates=true;SyncAudio=true;SyncGraphics=true;}
   public static Customization Load(string file){if(!File.Exists(file))return new Customization();var value=new JavaScriptSerializer().Deserialize<Customization>(File.ReadAllText(file));if(value==null)throw new IOException("Customization settings are unreadable.");return value;}
   public static void Save(string file,Customization value){string parent=Path.GetDirectoryName(file);Directory.CreateDirectory(parent);string temp=file+".tmp";File.WriteAllText(temp,new JavaScriptSerializer().Serialize(value));if(File.Exists(file))File.Replace(temp,file,file+".previous");else File.Move(temp,file);}

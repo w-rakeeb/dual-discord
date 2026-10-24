@@ -7,7 +7,9 @@ namespace DualDiscord {
   static readonly object gate=new object();static PolicyDocument current;static bool ready,checking;static DateTime next=DateTime.MinValue;
   public static string Status="Availability has not been checked yet.";
   public static bool Ready {get{lock(gate)return ready;}}
-  public static string BlockReason {get{lock(gate)return AppPolicy.BlockReason(current,UpdateService.CurrentVersion);}}
+  public static string BlockReason {get{lock(gate)return AppPolicy.AvailabilityReason(current,UpdateService.CurrentVersion,ready,BuildProfile.Personal);}}
+  public static bool StopManagedSecond {get{lock(gate)return AppPolicy.StopManagedSecond(current,UpdateService.CurrentVersion,BuildProfile.Personal);}}
+  public static bool RequiresUpdate {get{lock(gate)return current!=null&&UpdateService.ParseVersion(current.MinimumVersion)>UpdateService.ParseVersion(UpdateService.CurrentVersion);}}
   public static bool Due {get{lock(gate)return !checking&&DateTime.UtcNow>=next;}}
   public static void Check(string home){Check(home,Download);}
   internal static void Check(string home,Func<string> download){
@@ -19,12 +21,12 @@ namespace DualDiscord {
     if(selected!=null&&selected.Revision==value.Revision&&cached!=null&&json!=cached)throw new IOException("Conflicting policy revision.");
     selected=value;Status="Verified release policy · revision "+value.Revision;
     try{Directory.CreateDirectory(Path.GetDirectoryName(cache));string temp=cache+".tmp";File.WriteAllText(temp,json);if(File.Exists(cache))File.Replace(temp,cache,null);else File.Move(temp,cache);}catch{Status+=" · local cache could not be saved";}
-   }catch{Status=selected==null?"Availability service unavailable. Offline use is allowed.":"Availability service unavailable. Using verified saved policy.";}
-   lock(gate){current=selected;ready=true;checking=false;next=DateTime.UtcNow.AddMinutes(15);}
+   }catch{Status=selected==null?(BuildProfile.Personal?"Availability service unavailable. Offline use is allowed.":"Availability could not be verified. Connect and check again before launching."):"Availability service unavailable. Using verified saved policy.";}
+   lock(gate){current=selected;ready=true;checking=false;next=DateTime.UtcNow.AddMinutes(1);}
   }
   static string Download(){
    ServicePointManager.SecurityProtocol|=SecurityProtocolType.Tls12;
-   var request=(HttpWebRequest)WebRequest.Create("https://raw.githubusercontent.com/"+UpdateService.Repository+"/main/policy/runtime.json");request.UserAgent="DualDiscord/"+UpdateService.CurrentVersion;request.Timeout=8000;request.ReadWriteTimeout=8000;request.AllowAutoRedirect=false;
+   var request=(HttpWebRequest)WebRequest.Create("https://raw.githubusercontent.com/"+UpdateService.Repository+"/main/policy/runtime.json?check="+(DateTime.UtcNow.Ticks/TimeSpan.TicksPerMinute));request.CachePolicy=new System.Net.Cache.HttpRequestCachePolicy(System.Net.Cache.HttpRequestCacheLevel.NoCacheNoStore);request.UserAgent="DualDiscord/"+UpdateService.CurrentVersion;request.Timeout=8000;request.ReadWriteTimeout=8000;request.AllowAutoRedirect=false;
    using(var response=request.GetResponse())using(var stream=response.GetResponseStream())using(var memory=new MemoryStream()){
     byte[] buffer=new byte[4096];int count;while((count=stream.Read(buffer,0,buffer.Length))>0){memory.Write(buffer,0,count);if(memory.Length>65536)throw new IOException("Policy is too large.");}return Encoding.UTF8.GetString(memory.ToArray());
    }

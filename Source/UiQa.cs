@@ -38,6 +38,13 @@ public static class UiQa {
    if(state=="keyboard-focus"){var button=shell.SecondProfile.Open;var bounds=button.TransformToAncestor(shell.Root).TransformBounds(new Rect(button.RenderSize));var ring=new Border{Width=bounds.Width+8,Height=bounds.Height+8,Margin=new Thickness(bounds.Left-4,bounds.Top-4,0,0),HorizontalAlignment=HorizontalAlignment.Left,VerticalAlignment=VerticalAlignment.Top,BorderThickness=new Thickness(2),CornerRadius=new CornerRadius(8),IsHitTestVisible=false};Theme.Bind(ring,Border.BorderBrushProperty,"focus.ring");Grid.SetRowSpan(ring,2);shell.Root.Children.Add(ring);Render(shell,900,620,1,stateFile);}
    shell.Close();
   }
+  foreach(bool locked in new[]{false,true}){
+   var shell=Fixture(home);shell.Navigate("Settings",false);shell.SetCustomization(new Customization{CopyVencordPlugins=true,CopyVencordPluginSettings=true,CopyVencordPreferences=true,CopyVencordAppearance=true,CopyQuickCss=true},Path.Combine(home,"Profiles","Second"),locked,false,false,true);
+   var row=shell.SettingsRows["CopyVencordPlugins"];DependencyObject current=row;while(current!=null){var expander=current as Expander;if(expander!=null)expander.IsExpanded=true;current=LogicalTreeHelper.GetParent(current);}
+   string file=Path.Combine(output,locked?"state-vencord-locked.png":"state-vencord-copy.png");Render(shell,900,780,1,file);
+   current=row;while(current!=null){var scroll=current as ScrollViewer;if(scroll!=null){scroll.ScrollToVerticalOffset(scroll.VerticalOffset+row.TranslatePoint(new Point(0,0),scroll).Y-Theme.RowHeight-Theme.Gap);break;}current=VisualTreeHelper.GetParent(current);}
+   Render(shell,900,780,1,file);shell.Close();
+  }
   Before(home,output);
   File.WriteAllText(Path.Combine(output,"matrix.json"),new JavaScriptSerializer().Serialize(results));
   File.WriteAllText(Path.Combine(output,"layout-checks.txt"),layoutIssues.Count==0?"PASS: visible, arranged after-state controls meet the 32-DIP hit-target minimum; after-state text is at least 12 DIP. Scrollable content is intentionally allowed beyond the viewport.\r\n":String.Join(Environment.NewLine,layoutIssues));

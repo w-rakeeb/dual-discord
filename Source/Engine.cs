@@ -143,6 +143,7 @@ public static class Engine {
         if (second && existing.Count == 0) {
             if (Settings.SyncDiscord) SyncFromMain();
             if(Custom.CopyThemes&&!Settings.SyncVencord&&VencordAvailable())PreferenceSharing.CopyThemes(Path.Combine(MainVencord,"themes"),Path.Combine(PrivateVencord,"themes"));
+            if(!Settings.SyncVencord&&VencordAvailable()&&VencordSharing.Selected(Custom)){VencordSharing.Apply(MainVencord,PrivateVencord,Custom);Log("Copied selected Vencord preferences into separate storage; replaced files backed up");}
             SetClosePolicy();
         }
         string exe = FindDiscord(); var info = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe) };
@@ -154,7 +155,7 @@ public static class Engine {
         using(var process=Process.Start(info)){
             if(second&&SecondStarted!=null)try{SecondStarted(process);}catch{
                 Quit(true,true);
-                throw new IOException("The second profile could not be attached to the manager. Try standalone mode instead.");
+                throw new IOException("The second profile could not be attached to the manager. Close Dualcord and try again. Main Discord is unaffected.");
             }
         }
         Log((second?"Opened Dualcord":"Opened main Discord")+" · launcher "+clock.ElapsedMilliseconds+" ms (client readiness is separate)");
@@ -181,7 +182,7 @@ public static class Engine {
         var handles = new List<Process>();
         foreach (var item in target.Processes) try {
             var process = Process.GetProcessById(item.Id);
-            if (!process.MainModule.FileName.Equals(item.Exe, StringComparison.OrdinalIgnoreCase)) { process.Dispose(); continue; }
+            if ((item.StartedUtcTicks>0&&Math.Abs(process.StartTime.ToUniversalTime().Ticks-item.StartedUtcTicks)>10)||!process.MainModule.FileName.Equals(item.Exe, StringComparison.OrdinalIgnoreCase)) { process.Dispose(); continue; }
             handles.Add(process);
         } catch (ArgumentException) { }
         try {

@@ -10,6 +10,9 @@ namespace DualDiscord {
  public sealed class PolicyEnvelope {public string Payload{get;set;}public string Signature{get;set;}}
  public sealed class PolicyDocument {public long Revision{get;set;}public string MinimumVersion{get;set;}public bool Disabled{get;set;}public string Message{get;set;}}
  public static class AppPolicy {
+  // Only call with a document which has passed Verify; a network failure is not a stop command.
+  public static bool StopManagedSecond(PolicyDocument verified,string current,bool personal){return !personal&&verified!=null&&BlockReason(verified,current).Length>0;}
+  public static string AvailabilityReason(PolicyDocument verified,string current,bool ready,bool personal){return verified==null&&ready&&!personal?"Connect to the internet to verify app availability, then choose Check availability.":BlockReason(verified,current);}
   public static PolicyDocument Verify(string json,string key,long minimumRevision){
    try {
     if(String.IsNullOrWhiteSpace(json)||json.Length>65536)throw new IOException("Invalid app policy.");
