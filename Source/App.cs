@@ -83,7 +83,8 @@ static class App {
       case "CopyThemes":Engine.Custom.CopyThemes=value;break;
       case "HideTaskbar":Engine.Custom.HideTaskbar=value;break;
       case "HideTray":Engine.Custom.HideTray=value;break;
-      case "KeepSecondRunning":Engine.Custom.KeepSecondRunning=value;break;
+      case "KeepSecondRunning":if(!BuildProfile.Personal)throw new IOException("Public releases require Dual Discord to stay running.");Engine.Custom.KeepSecondRunning=value;break;
+      case "SeparateTray":Engine.Custom.SeparateTray=value;break;
       case "SeparateTaskbar":Engine.Custom.SeparateTaskbar=value;break;
       default:throw new IOException("Unknown option.");
      }
@@ -101,7 +102,7 @@ static class App {
   if(refreshing||closed)return;refreshing=true;
   try{
    var values=await Task.Run(delegate{var all=Engine.Snapshot();return new[]{Engine.GetInstance(false,all),Engine.GetInstance(true,all)};});if(closed)return;
-   BindManagedSecond(values[1]);taskbar.Update(values[1],Engine.Custom.SeparateTaskbar);shell.SetStats(values[0],values[1],Directory.Exists(Engine.SecondData));shell.SetLifecycle(Engine.Custom,values[1].Count>0||busy);shell.SetOptions(Engine.Settings,values[1].Count>0||busy);shell.SetCustomization(Engine.Custom,StoragePath(Engine.ProfileRoot),values[1].Count>0||busy,Engine.Settings.SyncDiscord,Engine.Settings.SyncVencord,Engine.VencordAvailable());
+   lifecycle.UpdateSecond(values[1].Count>0);BindManagedSecond(values[1]);taskbar.Update(values[1],Engine.Custom.SeparateTaskbar);shell.SetStats(values[0],values[1],Directory.Exists(Engine.SecondData));shell.SetLifecycle(Engine.Custom,values[1].Count>0||busy);shell.SetOptions(Engine.Settings,values[1].Count>0||busy);shell.SetCustomization(Engine.Custom,StoragePath(Engine.ProfileRoot),values[1].Count>0||busy,Engine.Settings.SyncDiscord,Engine.Settings.SyncVencord,Engine.VencordAvailable());
    try{Engine.FindDiscord();missing=false;}catch{missing=true;}shell.Missing(missing);shell.SetInstallation(missing?"Discord was not found. Detect it or select the installed Discord.exe.":"Detected: "+StoragePath(Engine.DiscordRoot));shell.SetPolicy(PolicyService.BlockReason,!PolicyService.Ready);
    if(busy)foreach(var card in new[]{shell.MainProfile,shell.SecondProfile}){card.Open.IsEnabled=false;card.Quit.IsEnabled=false;}
   }catch(Exception ex){Engine.Log("Status unavailable: "+ex.Message);if(!closed)shell.Toast.Show("Status is temporarily unavailable.");}
@@ -131,6 +132,7 @@ static class App {
   finally{updating=false;}
  }
  static async Task InstallUpdate(){
+  if(!BuildProfile.CanInstallPublicUpdate){shell.Toast.Show("This personal build keeps your extra options. Install a personal update manually; public packages enforce managed mode.");return;}
   if(busy){shell.Toast.Show("Wait for the current profile action to finish before updating.");return;}
   if(updating||availableRelease==null||availableRelease.Version<=UpdateService.ParseVersion(UpdateService.CurrentVersion))return;updating=true;installingUpdate=true;shell.Updates.State("Downloading and verifying the update…",true);
   try{

@@ -9,6 +9,14 @@ namespace DualDiscord {
  // Render bundled SVG geometry directly so UI logos remain sharp at every DPI.
  public static class LogoAssets {
   static readonly System.Collections.Generic.Dictionary<string,ImageSource> Cache=new System.Collections.Generic.Dictionary<string,ImageSource>(StringComparer.OrdinalIgnoreCase);
+  // Match Dualcord's visible canvas and symbol bounds, not just Image.Width/Height.
+  public static ImageSource LoadProfile(string file){
+   if(!Path.GetFileNameWithoutExtension(file).Equals("Discord",StringComparison.OrdinalIgnoreCase))return Load(file);
+   string key=file+"#profile";ImageSource image;if(Cache.TryGetValue(key,out image))return image;
+   var xml=new XmlDocument();xml.XmlResolver=null;xml.Load(Path.ChangeExtension(file,"svg"));var geometry=Geometry.Parse("F1 "+xml.SelectSingleNode("//*[local-name()='path']").Attributes["d"].Value);
+   var drawing=new DrawingGroup();drawing.Children.Add(new GeometryDrawing((Brush)new BrushConverter().ConvertFromString("#101114"),null,new RectangleGeometry(new System.Windows.Rect(8,8,240,240),54,54)));
+   var symbol=new DrawingGroup();var transform=new TransformGroup();transform.Children.Add(new ScaleTransform(.36,.36));transform.Children.Add(new TranslateTransform(36,36));symbol.Transform=transform;symbol.Children.Add(new GeometryDrawing((Brush)new BrushConverter().ConvertFromString("#5865F2"),null,geometry));drawing.Children.Add(symbol);image=new DrawingImage(drawing);image.Freeze();Cache[key]=image;return image;
+  }
   public static ImageSource Load(string file){string svg=Path.ChangeExtension(file,"svg");ImageSource image;if(Cache.TryGetValue(svg,out image))return image;
    var xml=new XmlDocument();xml.XmlResolver=null;xml.Load(svg);var path=xml.SelectSingleNode("//*[local-name()='path']");var geometry=Geometry.Parse("F1 "+path.Attributes["d"].Value);var drawing=new DrawingGroup();
    if(Path.GetFileName(svg).Equals("Discord.svg",StringComparison.OrdinalIgnoreCase))drawing.Children.Add(new GeometryDrawing((Brush)new BrushConverter().ConvertFromString("#5865F2"),null,geometry));

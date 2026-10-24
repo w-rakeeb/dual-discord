@@ -1,6 +1,9 @@
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $homeDir=Split-Path $PSScriptRoot -Parent
+$assembly=[Reflection.Assembly]::LoadFile((Join-Path $homeDir 'Dual Discord.exe'))
+$edition=$assembly.GetCustomAttributesData() | Where-Object {$_.AttributeType.Name -eq 'AssemblyMetadataAttribute' -and $_.ConstructorArguments[0].Value -eq 'DualDiscord.Edition'}
+if(-not $edition -or $edition.ConstructorArguments[1].Value -ne 'Public'){throw 'Only a Public build may be packaged for distribution.'}
 $source=Get-Content -LiteralPath (Join-Path $PSScriptRoot 'UpdateService.cs') -Raw
 $version=[regex]::Match($source,'CurrentVersion="([0-9.]+)"').Groups[1].Value
 foreach($binary in 'Dual Discord.exe','Dual Discord Updater.exe'){

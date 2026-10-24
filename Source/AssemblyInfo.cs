@@ -3,6 +3,12 @@ using System.Runtime.InteropServices;
 [assembly:AssemblyTitle("Dual Discord")]
 [assembly:AssemblyProduct("Dual Discord")]
 [assembly:AssemblyCompany("Wrakeeb")]
-[assembly:AssemblyVersion("2.4.1.0")]
-[assembly:AssemblyFileVersion("2.4.1.0")]
+[assembly:AssemblyVersion("2.5.0.0")]
+[assembly:AssemblyFileVersion("2.5.0.0")]
 [assembly:ComVisible(false)]
+
+#if PERSONAL
+[assembly:AssemblyMetadata("DualDiscord.Edition","Personal")]
+#else
+[assembly:AssemblyMetadata("DualDiscord.Edition","Public")]
+#endif
