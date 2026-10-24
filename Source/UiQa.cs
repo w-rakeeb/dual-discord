@@ -24,12 +24,14 @@ public static class UiQa {
    }
   }
   Theme.Apply("Dark",false);
-  foreach(string state in new[]{"empty","error","disabled","loading","hover","pressed","keyboard-focus","update-available"}){
+  foreach(string state in new[]{"empty","error","disabled","loading","hover","pressed","keyboard-focus","update-available","mandatory-update","disabled-by-publisher"}){
    var shell=Fixture(home);shell.LayoutForWidth(900);
-   if(state=="update-available")shell.UpdateAlert.ShowRelease("2.3.0");
+   if(state=="mandatory-update")shell.SetPolicy("Update required: install Dual Discord 9.0.0 or later. Please install this critical update.",false);
+   if(state=="disabled-by-publisher")shell.SetPolicy("Dual Discord is temporarily unavailable. Your files are safe.",false);
+   if(state=="update-available")shell.UpdateAlert.ShowRelease("2.4.0");
    if(state=="empty")shell.SecondProfile.Update(new Instance{Second=true},false);
    if(state=="error")shell.Missing(true);
-   if(state=="disabled"){shell.Navigate("Settings",false);shell.SetOptions(new Options(),true);}
+   if(state=="disabled"){shell.Navigate("Settings",false);shell.SetOptions(new Options(),true);shell.SetLifecycle(new Customization(),true);}
    if(state=="loading")shell.SecondProfile.Loading(true);
    string stateFile=Path.Combine(output,"state-"+state+".png");Render(shell,900,620,1,stateFile);
    if(state=="hover"||state=="pressed"){shell.SecondProfile.Open.ApplyTemplate();var plate=(Border)shell.SecondProfile.Open.Template.FindName("Plate",shell.SecondProfile.Open);Theme.Bind(plate,Border.BackgroundProperty,state=="hover"?"accent.hover":"accent.pressed");Render(shell,900,620,1,stateFile);}
@@ -43,7 +45,7 @@ public static class UiQa {
   app.Shutdown();
  }
  public static AppShell Fixture(string home){
-  var shell=new AppShell(home);var main=new Instance{Count=6,Memory=440*1048576L};main.Roots.Add(new Proc{Id=12000});var second=new Instance{Second=true};shell.SetStats(main,second,true);shell.SetOptions(new Options(),false);shell.SetCustomization(new Customization(),Path.Combine(home,"Profiles","Second"),false,false,false,true);
+  var shell=new AppShell(home);var main=new Instance{Count=6,Memory=440*1048576L};main.Roots.Add(new Proc{Id=12000});var second=new Instance{Second=true};shell.SetStats(main,second,true);shell.SetOptions(new Options(),false);shell.SetLifecycle(new Customization(),false);shell.SetCustomization(new Customization(),Path.Combine(home,"Profiles","Second"),false,false,false,true);
   shell.SetFiles(new[]{new KeyValuePair<string,string>("Main profile data",Path.Combine(home,"Profiles","Main")),new KeyValuePair<string,string>("Second profile data",Path.Combine(home,"Profiles","Second","Second Account","discord")),new KeyValuePair<string,string>("Main Vencord data",Path.Combine(home,"Vencord","Main")),new KeyValuePair<string,string>("Installed Discord",Path.Combine(home,"Runtime","Discord")),new KeyValuePair<string,string>("Activity logs",Path.Combine(home,"Logs")),new KeyValuePair<string,string>("App and source files",home),new KeyValuePair<string,string>("Second Vencord data",Path.Combine(home,"Data","Vencord"))});return shell;
  }
  static void Render(Window shell,double width,double height,double scale,string file){

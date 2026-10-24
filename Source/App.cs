@@ -14,20 +14,24 @@ using Microsoft.Win32;
 using DualDiscord;
 
 static class App {
- static AppShell shell;static UiPreferences preferences;static bool refreshing,busy,closed,missing;static DispatcherTimer timer;static ReleaseInfo availableRelease;static bool updating;static readonly UpdateSchedule updateSchedule=new UpdateSchedule();
+ static AppShell shell;static UiPreferences preferences;static bool refreshing,busy,closed,missing;static DispatcherTimer timer;static ReleaseInfo availableRelease;static bool updating;static readonly UpdateSchedule updateSchedule=new UpdateSchedule();static WindowLifecycle lifecycle;static InstanceSignals signals;static ManagedSecond managedSecond;static bool policyChecking,exitingForUpdate;
  [DllImport("dwmapi.dll")]static extern int DwmSetWindowAttribute(IntPtr handle,int key,ref int value,int size);
  [STAThread]static void Main(string[] args){
   try{
    if(args.Contains("--ui-qa")){string output=args.FirstOrDefault(s=>s.StartsWith("--qa-output="));UiQa.Run(Engine.Home,output==null?Path.Combine(Engine.Home,"UI Review"):output.Substring(12));return;}
+   if(args.Contains("--exit")){InstanceSignals.Send(2);return;}
    Engine.Init();
-   if(args.Contains("--second")){Engine.Launch(true,args.Contains("--startup"));return;}
+   if(args.Contains("--second")&&Engine.Custom.KeepSecondRunning){Engine.Launch(true,args.Contains("--startup"));return;}
    if(args.Contains("--quit-second")){Engine.Quit(true,args.Contains("--force"));return;}
    if(args.Contains("--diagnostics")){var all=Engine.Snapshot();var value=new{Home=Engine.Home,SecondData=Engine.SecondData,MainData=Engine.MainData,Vencord=Engine.Settings.SyncVencord?Engine.MainVencord:Engine.PrivateVencord,Options=Engine.Settings,Main=Engine.GetInstance(false,all),Second=Engine.GetInstance(true,all)};File.WriteAllText(Path.Combine(Engine.Home,"Logs","diagnostics.json"),new JavaScriptSerializer().Serialize(value));return;}
-   using(var mutex=new Mutex(false,"Local\\DualDiscordManager2")){bool owned;try{owned=mutex.WaitOne(0);}catch(AbandonedMutexException){owned=true;}if(!owned){MessageBox.Show("Dual Discord is already open.","Dual Discord");return;}try{Show();}finally{mutex.ReleaseMutex();}}
-  }catch(Exception ex){try{Engine.Log("UI error: "+ex);}catch{}MessageBox.Show("Dual Discord couldn't finish opening. Your Discord profiles haven't been changed. Details are in the activity log.","Dual Discord");}
+   using(var mutex=new Mutex(false,"Local\\DualDiscordManager2")){bool owned;try{owned=mutex.WaitOne(0);}catch(AbandonedMutexException){owned=true;}if(!owned){if(!InstanceSignals.Send(args.Contains("--second")?1:0))MessageBox.Show("Dual Discord is opening. Try its shortcut again in a moment.","Dual Discord");return;}try{Show(args.Contains("--second"),args.Contains("--startup"));}finally{mutex.ReleaseMutex();}}
+  }catch(Exception ex){try{Engine.Log("UI error: "+ex);}catch{}MessageBox.Show(ex is IOException?ex.Message:"Dual Discord couldn't finish opening. Your Discord profiles haven't been changed. Details are in the activity log.","Dual Discord");}
  }
- static void Show(){
+ static void Show(bool launchSecond=false,bool startup=false){
   var app=new Application{ShutdownMode=ShutdownMode.OnMainWindowClose};preferences=UiPreferences.Load(Engine.Home);Theme.Apply(preferences.Theme);Theme.InitStyles();shell=new AppShell(Engine.Home);app.MainWindow=shell;preferences.Restore(shell);shell.Navigate(preferences.Page,false);
+  lifecycle=new WindowLifecycle(shell,Engine.Home,()=>Engine.Custom);lifecycle.ExitRequested=RequestExit;lifecycle.SecondOpenRequested=async delegate{await Act(true,true);};lifecycle.SecondQuitRequested=async delegate{await Act(true,false);};signals=new InstanceSignals(shell,lifecycle.Restore,async delegate{await Act(true,true);},RequestExit);app.SessionEnding+=delegate{lifecycle.AllowExit();};Engine.SecondStarted=process=>{if(!Engine.Custom.KeepSecondRunning){if(managedSecond==null)managedSecond=new ManagedSecond();managedSecond.Assign(process);}};
+  shell.ExitApp=RequestExit;shell.CheckPolicy=async delegate{await CheckPolicy();await Refresh();};shell.CloseActionChanged=async value=>{string previous=Engine.Custom.CloseAction;try{Engine.Custom.CloseAction=value;Engine.SaveCustom();shell.Toast.Show("Close behavior updated");}catch{Engine.Custom.CloseAction=previous;shell.Toast.Show("Close behavior could not be saved.");}await Refresh();};
+  shell.AddShortcut=delegate{try{DesktopShortcut.Create(Engine.Home,Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory));shell.Toast.Show("Second Discord shortcut added to your desktop");}catch{shell.Toast.Show("The desktop shortcut could not be created.");}};
   shell.OpenProfile=async second=>await Act(second,true);shell.QuitProfile=async second=>await Act(second,false);
   shell.OptionChanged=async(name,value)=>await Change(name,value);
   shell.AppearanceChanged=mode=>{preferences.Theme=mode;Theme.Apply(mode);ApplyBackdrop();SaveUi();shell.Toast.Show("Appearance updated");};
@@ -35,18 +39,21 @@ static class App {
   shell.CopyPath=path=>{try{Clipboard.SetText(path);shell.Toast.Show("Path copied");}catch{shell.Toast.Show("The clipboard is busy. Try again.");}};
   shell.ExternalLink=url=>Process.Start(new ProcessStartInfo(url){UseShellExecute=true});shell.Locate=Locate;shell.Detect=async delegate{try{bool found=await Task.Run(()=>Engine.DetectInstallation());shell.Toast.Show(found?"Discord detected and saved":"Discord was not found. Select Discord.exe manually.");Files();await Refresh();}catch(Exception ex){shell.Toast.Show(ex.Message);}};shell.ChooseStorage=async delegate{await ChooseStorage();};shell.Updates.CheckRequested=async delegate{await CheckUpdates();};shell.Updates.InstallRequested=async delegate{await InstallUpdate();};
   shell.SetOptions(Engine.Settings,false);Files();shell.SourceInitialized+=delegate{ApplyBackdrop();};
-  timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};timer.Tick+=async delegate{await Refresh();if(!updating&&updateSchedule.TakeCheck(Engine.Custom.AutoCheckUpdates,DateTime.UtcNow))await CheckUpdates();};
-  shell.Loaded+=async delegate{await Refresh();timer.Start();if(updateSchedule.TakeCheck(Engine.Custom.AutoCheckUpdates,DateTime.UtcNow))await CheckUpdates();};
-  shell.Closing+=delegate{SaveUi();};shell.Closed+=delegate{closed=true;timer.Stop();SystemEvents.UserPreferenceChanged-=SystemChanged;};
+  timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};timer.Tick+=async delegate{await Refresh();if(!policyChecking&&PolicyService.Due)await CheckPolicy();if(!updating&&updateSchedule.TakeCheck(Engine.Custom.AutoCheckUpdates,DateTime.UtcNow))await CheckUpdates();};
+  shell.Loaded+=async delegate{await Refresh();timer.Start();await CheckPolicy();await Refresh();if(launchSecond){await Act(true,true,startup);if(shell.SecondProfile.Running)shell.Hide();}if(updateSchedule.TakeCheck(Engine.Custom.AutoCheckUpdates,DateTime.UtcNow))await CheckUpdates();};
+  shell.Closing+=delegate(object sender,System.ComponentModel.CancelEventArgs e){if(busy||(updating&&!exitingForUpdate)){e.Cancel=true;shell.Toast.Show("Wait for the current action to finish before closing.");}SaveUi();};shell.Closed+=delegate{closed=true;timer.Stop();signals.Dispose();lifecycle.Dispose();if(managedSecond!=null)managedSecond.Dispose();Engine.SecondStarted=null;SystemEvents.UserPreferenceChanged-=SystemChanged;};
   SystemEvents.UserPreferenceChanged+=SystemChanged;app.Run(shell);
  }
+ static void RequestExit(){if(busy||updating){lifecycle.Restore();shell.Toast.Show("Wait for the current action to finish before exiting.");return;}lifecycle.AllowExit();shell.Close();}
+ static async Task CheckPolicy(){if(policyChecking||closed)return;policyChecking=true;try{await Task.Run(()=>PolicyService.Check(Engine.Home));if(!closed){shell.SetPolicy(PolicyService.BlockReason,false);if(PolicyService.BlockReason.Length>0){lifecycle.Restore();shell.Navigate("Profiles",false);}}}finally{policyChecking=false;}}
+ static void BindManagedSecond(Instance instance){if(Engine.Custom.KeepSecondRunning)return;if(managedSecond==null)managedSecond=new ManagedSecond();foreach(var item in instance.Processes)try{using(var process=Process.GetProcessById(item.Id)){long ticks=process.StartTime.ToUniversalTime().Ticks;if(item.StartedUtcTicks>0&&Math.Abs(ticks-item.StartedUtcTicks)<=10&&Installation.Physical(process.MainModule.FileName).Equals(Installation.Physical(item.Exe),StringComparison.OrdinalIgnoreCase))managedSecond.Assign(process);}}catch(ArgumentException){}catch(InvalidOperationException){}}
  static void SaveUi(){try{preferences.Save(Engine.Home,shell,shell.Page);}catch{shell.Toast.Show("Window preferences couldn't be saved.");}}
  static void SystemChanged(object sender,UserPreferenceChangedEventArgs e){if(closed)return;shell.Dispatcher.BeginInvoke(new Action(delegate{Theme.Apply(preferences.Theme);ApplyBackdrop();}));}
  static void ApplyBackdrop(){try{var handle=new WindowInteropHelper(shell).Handle;int dark=Theme.Light?0:1;DwmSetWindowAttribute(handle,20,ref dark,4);int corners=2;DwmSetWindowAttribute(handle,33,ref corners,4);int backdrop=Theme.High?1:2;DwmSetWindowAttribute(handle,38,ref backdrop,4);}catch(DllNotFoundException){}}
- static async Task Act(bool second,bool opening){
+ static async Task Act(bool second,bool opening,bool startup=false){
   if(busy)return;busy=true;var card=second?shell.SecondProfile:shell.MainProfile;card.Loading(opening);
   foreach(var item in new[]{shell.MainProfile,shell.SecondProfile}){item.Open.IsEnabled=false;item.Quit.IsEnabled=false;}
-  try{await Task.Run(delegate{if(opening)Engine.Launch(second);else Engine.Quit(second);});shell.Toast.Show((second?"Second":"Main")+" profile "+(opening?(card.Running?"brought to front":"started"):"closed"));}
+  try{await Task.Run(delegate{if(opening)Engine.Launch(second,startup);else Engine.Quit(second);});shell.Toast.Show((second?"Second":"Main")+" profile "+(opening?(card.Running?"brought to front":"started"):"closed"));}
   catch(Exception ex){Engine.Log("Profile action failed: "+ex.Message);shell.Toast.Show("Discord couldn't "+(opening?"open":"close")+". Try again, or check the activity log.");}
   finally{card.EndLoading();busy=false;}
   await Refresh();
@@ -60,7 +67,7 @@ static class App {
    } else if(name=="SyncDiscord"||name=="SyncVencord") {
     await Task.Run(delegate{Engine.SetSharing(name=="SyncDiscord",value);});
    } else {
-    if(name!="AutoCheckUpdates"&&Engine.GetInstance(true,Engine.Snapshot()).Count>0)
+    if((name=="SyncAudio"||name=="SyncGraphics"||name=="CopyThemes"||name=="KeepSecondRunning")&&Engine.GetInstance(true,Engine.Snapshot()).Count>0)
      throw new IOException("Quit the second profile first.");
     string previous=new JavaScriptSerializer().Serialize(Engine.Custom);
     try {
@@ -69,12 +76,15 @@ static class App {
       case "SyncAudio":Engine.Custom.SyncAudio=value;break;
       case "SyncGraphics":Engine.Custom.SyncGraphics=value;break;
       case "CopyThemes":Engine.Custom.CopyThemes=value;break;
+      case "HideTaskbar":Engine.Custom.HideTaskbar=value;break;
+      case "HideTray":Engine.Custom.HideTray=value;break;
+      case "KeepSecondRunning":Engine.Custom.KeepSecondRunning=value;break;
       default:throw new IOException("Unknown option.");
      }
      Engine.SaveCustom();
     } catch {Engine.Custom=new JavaScriptSerializer().Deserialize<Customization>(previous);throw;}
    }
-   shell.Toast.Show("Settings saved");Files();
+   lifecycle.Apply();shell.Toast.Show("Settings saved");Files();
   } catch(Exception ex) {
    Engine.Log("Setting change failed: "+ex.Message);
    shell.Toast.Show(ex is IOException?ex.Message:"The setting could not be saved. Try again.");
@@ -85,8 +95,8 @@ static class App {
   if(refreshing||closed)return;refreshing=true;
   try{
    var values=await Task.Run(delegate{var all=Engine.Snapshot();return new[]{Engine.GetInstance(false,all),Engine.GetInstance(true,all)};});if(closed)return;
-   shell.SetStats(values[0],values[1],Directory.Exists(Engine.SecondData));shell.SetOptions(Engine.Settings,values[1].Count>0||busy);shell.SetCustomization(Engine.Custom,StoragePath(Engine.ProfileRoot),values[1].Count>0||busy,Engine.Settings.SyncDiscord,Engine.Settings.SyncVencord,Engine.VencordAvailable());
-   try{Engine.FindDiscord();missing=false;}catch{missing=true;}shell.Missing(missing);shell.SetInstallation(missing?"Discord was not found. Detect it or select the installed Discord.exe.":"Detected: "+StoragePath(Engine.DiscordRoot));
+   BindManagedSecond(values[1]);shell.SetStats(values[0],values[1],Directory.Exists(Engine.SecondData));shell.SetLifecycle(Engine.Custom,values[1].Count>0||busy);shell.SetOptions(Engine.Settings,values[1].Count>0||busy);shell.SetCustomization(Engine.Custom,StoragePath(Engine.ProfileRoot),values[1].Count>0||busy,Engine.Settings.SyncDiscord,Engine.Settings.SyncVencord,Engine.VencordAvailable());
+   try{Engine.FindDiscord();missing=false;}catch{missing=true;}shell.Missing(missing);shell.SetInstallation(missing?"Discord was not found. Detect it or select the installed Discord.exe.":"Detected: "+StoragePath(Engine.DiscordRoot));shell.SetPolicy(PolicyService.BlockReason,!PolicyService.Ready);
    if(busy)foreach(var card in new[]{shell.MainProfile,shell.SecondProfile}){card.Open.IsEnabled=false;card.Quit.IsEnabled=false;}
   }catch(Exception ex){Engine.Log("Status unavailable: "+ex.Message);if(!closed)shell.Toast.Show("Status is temporarily unavailable.");}
   finally{refreshing=false;}
@@ -110,7 +120,7 @@ static class App {
  }
  static async Task CheckUpdates(){
   if(updating)return;updating=true;shell.Updates.State("Checking GitHub…",true);
-  try{var release=await Task.Run(()=>UpdateService.GetLatest());if(closed)return;availableRelease=release;bool newer=release.Version>UpdateService.ParseVersion(UpdateService.CurrentVersion);shell.Updates.State(newer?"Version "+release.Tag+" is available.":"You're up to date. Installed version: "+UpdateService.CurrentVersion,false,newer);if(newer&&updateSchedule.Announce(release.Tag)){shell.UpdateAlert.ShowRelease(release.Tag);if(shell.WindowState==WindowState.Minimized)shell.WindowState=WindowState.Normal;shell.Activate();}}
+  try{var release=await Task.Run(()=>UpdateService.GetLatest());if(closed)return;availableRelease=release;bool newer=release.Version>UpdateService.ParseVersion(UpdateService.CurrentVersion);shell.Updates.State(newer?"Version "+release.Tag+" is available.":"You're up to date. Installed version: "+UpdateService.CurrentVersion,false,newer);if(newer&&updateSchedule.Announce(release.Tag)){shell.UpdateAlert.ShowRelease(release.Tag);lifecycle.Restore();}}
   catch(Exception ex){if(!closed)shell.Updates.State(ex is IOException?ex.Message:"The update check could not be completed.");}
   finally{updating=false;}
  }
@@ -124,7 +134,7 @@ static class App {
     var request=new UpdateRequest{Target=Engine.Home,Package=zip,Sha256=availableRelease.Sha256,Version=availableRelease.Tag,ManagerPid=current.Id,ManagerStartTicks=current.StartTime.ToUniversalTime().Ticks};string file=Path.Combine(folder,"request.json");File.WriteAllText(file,new JavaScriptSerializer().Serialize(request));
     Process.Start(new ProcessStartInfo(helper,"--request \""+file+"\""){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=folder});
    }
-   shell.Close();
+   if(managedSecond!=null)managedSecond.PreserveForRestart();exitingForUpdate=true;lifecycle.AllowExit();shell.Close();
   }catch(Exception ex){if(!closed)shell.Updates.State(ex is IOException?ex.Message:"The update could not be installed. Try a writable app folder.",false,true);}
   finally{updating=false;}
  }

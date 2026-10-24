@@ -14,7 +14,8 @@ public static class Theme {
     public const double Space=4, Padding=24, CardPadding=16, Gap=12, RowHeight=64, Hit=32, ButtonHeight=36, Rail=200, NarrowRail=56, NarrowAt=860;
     public const double PageSize=24, TitleSize=14, BodySize=13, NoteSize=12, CardRadius=10, ButtonRadius=6, ContentMax=1080, ProseMax=520;
     public const int HoverMs=150, ToastMs=2500;
-    public const double StatusRadius=4, MarkerInset=8, CaptionHeight=36, CaptionButtonWidth=36, CaptionIconSize=12, BrandIconSize=16;
+    public const double FooterHeight=56;
+    public const double StatusRadius=4, MarkerInset=8, CaptionHeight=36, CaptionButtonWidth=40, CaptionIconSize=12, BrandIconSize=16;
     public static bool Motion { get { return SystemParameters.ClientAreaAnimation && !SystemParameters.HighContrast && !High; } }
     public static string Mode="Dark"; public static bool Light, High;
     public static readonly Dictionary<string,string[]> Palette=new Dictionary<string,string[]> {

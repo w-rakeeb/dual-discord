@@ -18,7 +18,7 @@ public sealed class Options {
     public bool SyncVencord { get; set; }
 }
 public sealed class Proc {
-    public int Id, Parent; public string Command, Exe;
+    public int Id, Parent; public string Command, Exe; public long StartedUtcTicks;
 }
 public sealed class Instance {
     public DateTime? Started; public bool Second; public int Count; public long Memory; public List<Proc> Processes = new List<Proc>(); public List<Proc> Roots = new List<Proc>();
@@ -104,8 +104,8 @@ public static class Engine {
     static Version VersionOf(string value) { Version version; return Version.TryParse(value, out version) ? version : new Version(0, 0); }
     public static List<Proc> Snapshot() {
         var result = new List<Proc>();
-        using (var query = new ManagementObjectSearcher("SELECT ProcessId, ParentProcessId, CommandLine, ExecutablePath FROM Win32_Process WHERE Name='Discord.exe'")) {
-            foreach (ManagementObject row in query.Get()) using (row) result.Add(new Proc { Id = Convert.ToInt32(row["ProcessId"]), Parent = Convert.ToInt32(row["ParentProcessId"]), Command = Convert.ToString(row["CommandLine"]), Exe = Convert.ToString(row["ExecutablePath"]) });
+        using (var query = new ManagementObjectSearcher("SELECT ProcessId, ParentProcessId, CommandLine, ExecutablePath, CreationDate FROM Win32_Process WHERE Name='Discord.exe'")) {
+            foreach (ManagementObject row in query.Get()) using (row) result.Add(new Proc { Id = Convert.ToInt32(row["ProcessId"]), Parent = Convert.ToInt32(row["ParentProcessId"]), Command = Convert.ToString(row["CommandLine"]), Exe = Convert.ToString(row["ExecutablePath"]), StartedUtcTicks = ManagementDateTimeConverter.ToDateTime(Convert.ToString(row["CreationDate"])).ToUniversalTime().Ticks });
         }
         return result;
     }
@@ -130,7 +130,9 @@ public static class Engine {
         foreach (var p in result.Processes) try { using (var proc = Process.GetProcessById(p.Id)) result.Memory += proc.WorkingSet64; } catch (ArgumentException) { }
         return result;
     }
+    public static Action<Process> SecondStarted;
     public static void Launch(bool second, bool startup = false) {
+        PolicyService.EnsureAllowed(Home);
         if (second && startup && GetInstance(true, Snapshot()).Count > 0) return;
         if (second && GetInstance(true, Snapshot()).Count == 0) {
             if (Settings.SyncDiscord) SyncFromMain();
@@ -143,7 +145,13 @@ public static class Engine {
             info.EnvironmentVariables["VENCORD_USER_DATA_DIR"] = Settings.SyncVencord ? MainVencord : PrivateVencord;
             info.Arguments = "--dual-discord-second" + (startup ? " --start-minimized --start-inactive" : "");
         } else { info.EnvironmentVariables.Remove("DISCORD_USER_DATA_DIR"); info.EnvironmentVariables.Remove("VENCORD_USER_DATA_DIR"); }
-        Process.Start(info); Log(second ? "Opened second Discord" : "Opened main Discord");
+        using(var process=Process.Start(info)){
+            if(second&&SecondStarted!=null)try{SecondStarted(process);}catch{
+                Quit(true,true);
+                throw new IOException("The second profile could not be attached to the manager. Try standalone mode instead.");
+            }
+        }
+        Log(second ? "Opened second Discord" : "Opened main Discord");
     }
     public static void SetClosePolicy() {
         string file = Path.Combine(SecondData, "settings.json");

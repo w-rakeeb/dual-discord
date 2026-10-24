@@ -21,7 +21,7 @@ If Discord is not detected, open **Settings → Discord installation → Locate 
 
 Local audio/graphics preference sync and Vencord sharing are optional. A fresh setup defaults to separate settings. Existing sharing and startup choices are retained. These features do not copy Discord login tokens, cookies or local storage. Account/server preferences stored by Discord follow the signed-in account.
 
-X in the second Discord hides it by default. **Focus** restores it; **Quit** in this manager closes that selected profile fully. Quitting can disconnect its call. Closing the manager leaves Discord running. Each running profile uses its own RAM/CPU/GPU; shared installed files do not mean shared live memory.
+X in the second Discord hides it by default. **Focus** restores it; **Quit** in this manager closes that selected profile fully. Quitting can disconnect its call. By default X hides the manager to the tray; explicit Exit leaves Discord running when independent mode is enabled. Each running profile uses its own RAM/CPU/GPU; shared installed files do not mean shared live memory.
 
 ## Updates
 
@@ -62,3 +62,17 @@ Turn off startup options in Settings, close the manager and keep a backup of you
 - Process details now includes the local profile's start time and running duration. It does not expose which Discord account is signed in and does not report remote usage.
 
 Discord presence supports desktop/mobile/web categories. It does not distinguish a normal desktop session from a second profile launched by this utility. Server administration cannot reliably identify Dual Discord users through that status. No tokens, account identifiers, telemetry or remote admin dashboard are collected.
+
+## Window, tray and lifetime controls (2.3)
+
+X/Alt+F4 hides the manager to the tray by default. Settings can switch that to Minimize or Exit. Exit app in Settings or the tray menu always exits fully. Optional taskbar/tray hiding affects only the manager's icons. Reopen the normal manager shortcut to restore it even if both icons are hidden.
+
+Let second Discord run independently is on by default, retaining previous behavior. Turn it off while the second profile is closed to bind its Windows processes to the manager lifetime. Hiding/minimizing keeps the manager running; actual exit closes the managed second profile, including on manager termination. Main Discord is never assigned to that process group. Normal app updates preserve the second profile across the manager restart. Existing calls in a managed second profile end if the manager actually exits, so choose the lifetime setting accordingly.
+
+Use Add second Discord to desktop in Settings to create a Second Discord shortcut. It opens the second profile directly; managed mode also starts the manager in the background. The shortcut follows the installed manager path through app updates.
+
+## Signed availability policy
+
+The publisher can require a minimum version for critical updates or suspend new launches through this app. A signed policy is checked at startup and every 15 minutes, independently of optional update notifications. It does not send profile/account statistics. Restrictions show an explanation and retain access to Files, settings, Quit and update recovery. Existing Discord processes and files are not removed by a policy change. Offline/network errors use the last verified policy; a first-time offline install is allowed. Older pre-2.3 builds and modified clients are outside these controls; standalone Discord remains usable. This is an open-source launcher, not DRM or a remote uninstall service.
+
+The signing/private administration tools are intentionally not distributed with the app.
