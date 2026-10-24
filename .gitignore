@@ -1,0 +1,17 @@
+/Settings/
+/Logs/
+/Data/
+/Backups/
+/Runtime/
+/Profiles/
+/Vencord/
+/Verification/
+/UI Review/
+/Release/
+/Dual Discord.exe
+/Dual Discord.exe.config
+/Dual Discord Updater.exe
+*.tmp
+*.previous
+*.pdb
+/Assets/Dual Discord stacked.ico

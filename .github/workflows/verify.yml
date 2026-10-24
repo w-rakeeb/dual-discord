@@ -1,0 +1,17 @@
+name: Build and test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test core behavior
+        shell: pwsh
+        run: ./Tests/Run.ps1
+      - name: Build and package
+        shell: pwsh
+        run: |
+          ./Source/Build.ps1
+          ./Source/Package.ps1
