@@ -8,22 +8,22 @@ namespace DualDiscord {
   public const string CreatorName="Wrakeeb",GitHubUrl="https://github.com/w-rakeeb";
   public CreatorCredit(Action<string> openLink):this(CreatorName,GitHubUrl,openLink){}
   public CreatorCredit(string name,string github,Action<string> openLink){
-   HorizontalAlignment=HorizontalAlignment.Right;
-   ColumnDefinitions.Add(new ColumnDefinition());
+   HorizontalAlignment=HorizontalAlignment.Right;VerticalAlignment=VerticalAlignment.Center;
    ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
-   var creator=Ui.Text("Created by "+name,Theme.NoteSize,"text.secondary");
+   ColumnDefinitions.Add(new ColumnDefinition{Width=GridLength.Auto});
+   var creator=Ui.Text(name,Theme.NoteSize,"text.secondary");
    creator.VerticalAlignment=VerticalAlignment.Center;
    creator.TextWrapping=TextWrapping.NoWrap;
    creator.TextTrimming=TextTrimming.CharacterEllipsis;
    creator.MaxWidth=240;creator.ToolTip=creator.Text;
-   creator.Margin=new Thickness(0,0,Theme.Space,0);
+   creator.Margin=new Thickness(0,0,Theme.Gap,0);
    Children.Add(creator);
    var link=Ui.Button("",false,delegate{if(openLink!=null)openLink(github);});
    link.Style=Theme.Style("Quiet");
    link.FontSize=Theme.NoteSize;
-   Theme.Bind(link,Control.ForegroundProperty,"accent.text");
-   link.Width=Theme.Hit;link.MinWidth=Theme.Hit;link.Height=Theme.Hit;link.Padding=new Thickness(Theme.MarkerInset);
-   var mark=new System.Windows.Shapes.Path{Stretch=System.Windows.Media.Stretch.Uniform,Width=16,Height=16,Data=System.Windows.Media.Geometry.Parse(GitHubMark)};
+   Theme.Bind(link,Control.ForegroundProperty,"text.secondary");
+   link.Width=Theme.ButtonHeight;link.MinWidth=Theme.ButtonHeight;link.Height=Theme.ButtonHeight;link.Padding=new Thickness(0);
+   var mark=new System.Windows.Shapes.Path{Stretch=System.Windows.Media.Stretch.Uniform,Width=Theme.UtilityIconSize,Height=Theme.UtilityIconSize,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center,Data=System.Windows.Media.Geometry.Parse(GitHubMark)};
    mark.SetBinding(System.Windows.Shapes.Shape.FillProperty,new System.Windows.Data.Binding("Foreground"){Source=link});link.Content=mark;
    link.ToolTip=github;Ui.Name(link,"Open "+name+" on GitHub");
    Grid.SetColumn(link,1);Children.Add(link);
