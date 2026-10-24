@@ -7,7 +7,7 @@ using System.Windows.Controls.Primitives;
 namespace DualDiscord {
  public sealed class ProcessOverview:StackPanel {
   readonly ProfileActivity main=new ProfileActivity("Main Discord");
-  readonly ProfileActivity second=new ProfileActivity("Second Discord");
+  readonly ProfileActivity second=new ProfileActivity("Dualcord");
   public ProcessOverview(){
    var profiles=new Grid();
    profiles.ColumnDefinitions.Add(new ColumnDefinition());

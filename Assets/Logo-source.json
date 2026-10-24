@@ -1,1 +1,7 @@
-{"source":"https://dashboardicons.com/icons/discord","svg":"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/discord.svg","attribution":"Dashboard Icons by Homarr Labs; Discord trademark belongs to Discord Inc.","derived":"Dual Discord uses two stacked copies of the bundled source symbol. UI artwork is rendered as native vector geometry."}
+{
+  "source": "https://dashboardicons.com/icons/discord",
+  "svg": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/discord.svg",
+  "attribution": "Dashboard Icons by Homarr Labs; Discord trademark belongs to Discord Inc.",
+  "derived": "Dual Discord uses two stacked copies of the bundled source symbol. UI artwork is rendered as native vector geometry.",
+  "dualcord": "Original monochrome rounded-square vector composition using the bundled symbol; the Vecteezy link supplied by the user is a style reference only."
+}

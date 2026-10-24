@@ -1,13 +1,14 @@
+param([string]$Name="Dual Discord")
 $ErrorActionPreference = 'Stop'
 # Native vector rendering from the editable SVG composition.
 if ($PSVersionTable.PSEdition -eq 'Core' -or [Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
-    & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -ExecutionPolicy Bypass -File $PSCommandPath
+    & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -STA -ExecutionPolicy Bypass -File $PSCommandPath -Name $Name
     if ($LASTEXITCODE -ne 0) { throw 'Icon rendering failed.' }
     return
 }
 Add-Type -AssemblyName WindowsBase,PresentationCore,PresentationFramework
 $assetDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'Assets'
-[xml]$svg = Get-Content -LiteralPath (Join-Path $assetDir 'Dual Discord.svg') -Raw
+[xml]$svg = Get-Content -LiteralPath (Join-Path $assetDir ($Name+'.svg')) -Raw
 $geometry = [Windows.Media.Geometry]::Parse('F1 '+$svg.svg.defs.path.d)
 $geometry.Freeze()
 function Brush($color) { return [Windows.Media.BrushConverter]::new().ConvertFromString($color) }
@@ -39,10 +40,10 @@ function Render-Logo([int]$size) {
     $bytes = $stream.ToArray(); $stream.Dispose()
     return ,$bytes
 }
-[IO.File]::WriteAllBytes((Join-Path $assetDir 'Dual Discord.png'),(Render-Logo 1024))
+[IO.File]::WriteAllBytes((Join-Path $assetDir ($Name+'.png')),(Render-Logo 1024))
 $sizes = @(16,20,24,32,40,48,64,128,256)
 $images = @($sizes | ForEach-Object { ,(Render-Logo $_) })
-$stream = [IO.File]::Create((Join-Path $assetDir 'Dual Discord.ico'))
+$stream = [IO.File]::Create((Join-Path $assetDir ($Name+'.ico')))
 $writer = New-Object IO.BinaryWriter $stream
 try {
     $writer.Write([uint16]0); $writer.Write([uint16]1); $writer.Write([uint16]$sizes.Count)
@@ -59,4 +60,4 @@ try {
 } finally { $writer.Dispose() }
 
 # A distinct icon path refreshes existing shortcut caches without restarting Explorer.
-Copy-Item -LiteralPath (Join-Path $assetDir 'Dual Discord.ico') -Destination (Join-Path $assetDir 'Dual Discord stacked.ico') -Force
+if($Name -eq 'Dual Discord'){Copy-Item -LiteralPath (Join-Path $assetDir ($Name+'.ico')) -Destination (Join-Path $assetDir 'Dual Discord stacked.ico') -Force}

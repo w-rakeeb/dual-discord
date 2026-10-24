@@ -42,8 +42,13 @@ public static class Engine {
     [DllImport("user32.dll")] static extern bool EnumWindows(EnumCallback callback, IntPtr data);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder title, int count);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
+    [DllImport("user32.dll")] static extern bool ShowWindowAsync(IntPtr window,int command);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr window);
     [DllImport("user32.dll")] static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
     public static void Init() {
+        Branding.Ensure(Home);
         foreach (string folder in new[] { "Settings", "Logs", "Data", "Backups" }) Directory.CreateDirectory(Path.Combine(Home, folder));
         string file = Path.Combine(Home, "Settings", "app.json");
         Settings = File.Exists(file) ? Json.Deserialize<Options>(File.ReadAllText(file)) : new Options();
@@ -132,9 +137,10 @@ public static class Engine {
     }
     public static Action<Process> SecondStarted;
     public static void Launch(bool second, bool startup = false) {
-        PolicyService.EnsureAllowed(Home);
-        if (second && startup && GetInstance(true, Snapshot()).Count > 0) return;
-        if (second && GetInstance(true, Snapshot()).Count == 0) {
+        var clock=Stopwatch.StartNew();PolicyService.EnsureAllowed(Home);
+        var existing=GetInstance(second,Snapshot());
+        if(existing.Roots.Count>0){if(!startup)FocusExisting(existing);Log((second?"Dualcord":"Main Discord")+" already running; reused its process ("+clock.ElapsedMilliseconds+" ms)");return;}
+        if (second && existing.Count == 0) {
             if (Settings.SyncDiscord) SyncFromMain();
             if(Custom.CopyThemes&&!Settings.SyncVencord&&VencordAvailable())PreferenceSharing.CopyThemes(Path.Combine(MainVencord,"themes"),Path.Combine(PrivateVencord,"themes"));
             SetClosePolicy();
@@ -151,8 +157,9 @@ public static class Engine {
                 throw new IOException("The second profile could not be attached to the manager. Try standalone mode instead.");
             }
         }
-        Log(second ? "Opened second Discord" : "Opened main Discord");
+        Log((second?"Opened Dualcord":"Opened main Discord")+" · launcher "+clock.ElapsedMilliseconds+" ms (client readiness is separate)");
     }
+    static void FocusExisting(Instance instance){var ids=new HashSet<int>(instance.Roots.Select(p=>p.Id));EnumWindows(delegate(IntPtr window,IntPtr data){uint pid;GetWindowThreadProcessId(window,out pid);if(!ids.Contains((int)pid))return true;var title=new StringBuilder(512);GetWindowText(window,title,title.Capacity);if(title.Length==0||title.ToString().IndexOf("Overlay",StringComparison.OrdinalIgnoreCase)>=0)return true;if(!IsWindowVisible(window)||IsIconic(window))ShowWindowAsync(window,9);SetForegroundWindow(window);return false;},IntPtr.Zero);}
     public static void SetClosePolicy() {
         string file = Path.Combine(SecondData, "settings.json");
         var values = File.Exists(file) ? Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(file)) : new Dictionary<string, object>();
@@ -202,6 +209,9 @@ public static class Engine {
         if (GetInstance(true, Snapshot()).Count > 0) throw new Exception("Quit the second Discord before changing sharing.");
         if (discord) Settings.SyncDiscord = enabled; else Settings.SyncVencord = enabled;
         Save(); Log((discord ? "Discord preference sync" : "Vencord sharing") + (enabled ? " enabled" : " disabled"));
+    }
+    public static void ResetPreferences(){
+        if(GetInstance(true,Snapshot()).Count>0)throw new IOException("Quit Dualcord before resetting app preferences.");string backup=Path.Combine(Home,"Backups","Preferences-"+DateTime.Now.ToString("yyyyMMdd-HHmmss")+"-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(backup);foreach(string name in new[]{"app.json","customization.json","ui.json"}){string file=Path.Combine(Home,"Settings",name);if(File.Exists(file))File.Copy(file,Path.Combine(backup,name));}var original=Settings;var custom=Custom;try{Settings=new Options();Custom=Customization.DefaultsKeepingStorage(custom);Save();SaveCustom();}catch{Settings=original;Custom=custom;try{Save();SaveCustom();}catch{}throw;}Log("Default app preferences restored; profile storage retained");
     }
     public static void SaveCustom(){Customization.Save(Path.Combine(Home,"Settings","customization.json"),Custom);}
     public static void RelocateSecond(string target){

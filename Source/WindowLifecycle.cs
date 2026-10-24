@@ -15,7 +15,7 @@ namespace DualDiscord {
   IntPtr WindowsMessage(IntPtr handle,int msg,IntPtr w,IntPtr l,ref bool handled){if(msg==0x11)exitRequested=true;return IntPtr.Zero;}
   void Closing(object sender,CancelEventArgs e){string action=LifecycleRules.CloseAction(settings().CloseAction,exitRequested);if(action=="Exit")return;e.Cancel=true;if(action=="Minimize")window.WindowState=WindowState.Minimized;else{window.Hide();if(tray.Visible){tray.BalloonTipTitle="Dual Discord is still running";tray.BalloonTipText="Use the tray menu to reopen or exit. Your profile settings control whether Discord stays running.";tray.ShowBalloonTip(2500);}}}
   public void Apply(){if(disposed)return;window.ShowInTaskbar=!settings().HideTaskbar;tray.Visible=!settings().HideTray;}
-  public void Restore(){if(disposed)return;window.Show();window.WindowState=WindowState.Normal;window.ShowInTaskbar=!settings().HideTaskbar;bool top=window.Topmost;window.Topmost=true;window.Activate();window.Topmost=top;}
+  public void Restore(){if(disposed)return;Theme.Resources["KeyboardFocusVisibility"]=Visibility.Collapsed;window.Show();window.WindowState=WindowState.Normal;window.ShowInTaskbar=!settings().HideTaskbar;bool top=window.Topmost;window.Topmost=true;window.Activate();window.Topmost=top;}
   public void AllowExit(){exitRequested=true;}
   public void Dispose(){if(disposed)return;disposed=true;window.Closing-=Closing;tray.Visible=false;if(tray.ContextMenuStrip!=null)tray.ContextMenuStrip.Dispose();tray.Dispose();icon.Dispose();}
  }

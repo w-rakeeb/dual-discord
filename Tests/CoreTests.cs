@@ -15,6 +15,6 @@ class CoreTests {
   Check("Auto discovery accepts a running custom installation",()=>Assert(Installation.Discover(Path.Combine(root,"Missing"),new[]{Path.Combine(root,"Discord","app-1.0.9","Discord.exe")}).Contains("1.0.10")));
   Check("Installation settings persist independently",()=>{string file=Path.Combine(root,"installation.json");var value=new InstallationSettings{InstallRoot=Path.Combine(root,"Discord")};Installation.Save(file,value);Assert(Installation.Load(file).InstallRoot==value.InstallRoot);});
   Check("First setup creates empty separate data folders",()=>{string second=Path.Combine(root,"Second profile"),vencord=Path.Combine(root,"Private Vencord");Installation.PrepareSecond(second,vencord);Assert(Directory.Exists(Path.Combine(second,"discord"))&&Directory.Exists(vencord)&&Directory.GetFiles(Path.Combine(second,"discord")).Length==0);File.WriteAllText(Path.Combine(second,"discord","keep.txt"),"existing-login-placeholder");Installation.PrepareSecond(second,vencord);Assert(File.ReadAllText(Path.Combine(second,"discord","keep.txt"))=="existing-login-placeholder");});
-  Console.WriteLine("RESULT "+(total-failed)+" passed, "+failed+" failed");return failed+UpdateTests.Run()+FlexibilityTests.Run()+LifecycleTests.Run()==0?0:1;
+  Console.WriteLine("RESULT "+(total-failed)+" passed, "+failed+" failed");return failed+UpdateTests.Run()+FlexibilityTests.Run()+LifecycleTests.Run()+PolishTests.Run()==0?0:1;
  }
 }

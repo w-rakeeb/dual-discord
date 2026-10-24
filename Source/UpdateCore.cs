@@ -8,7 +8,7 @@ using System.Security.Cryptography;
 namespace DualDiscord {
  public static class UpdatePackage {
   public static readonly string[] Files={"Dual Discord.exe","Dual Discord.exe.config","Dual Discord Updater.exe","README.md","LICENSE","Assets/Dual Discord.ico","Assets/Dual Discord.png","Assets/Dual Discord.svg","Assets/Discord.svg","Assets/Discord.png","Assets/Logo-source.json","Assets/app.manifest"};
-  static readonly string[] Required={"Dual Discord.exe","Dual Discord.exe.config","Dual Discord Updater.exe","Assets/Dual Discord.ico","Assets/Dual Discord.png","Assets/Discord.png"};
+  static readonly string[] Required={"Dual Discord.exe","Dual Discord.exe.config","Dual Discord Updater.exe","Assets/Dual Discord.ico","Assets/Dual Discord.png","Assets/Discord.png","Assets/Dual Discord.svg","Assets/Discord.svg"};
   public static string Hash(string file){using(var sha=SHA256.Create())using(var stream=File.OpenRead(file))return BitConverter.ToString(sha.ComputeHash(stream)).Replace("-","").ToLowerInvariant();}
   public static void VerifyHash(string file,string expected){if(expected==null||!System.Text.RegularExpressions.Regex.IsMatch(expected,"^[a-fA-F0-9]{64}$")||!Hash(file).Equals(expected,StringComparison.OrdinalIgnoreCase))throw new IOException("The update checksum did not match. Nothing was installed.");}
   public static string[] Validate(string file){

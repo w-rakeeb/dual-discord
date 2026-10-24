@@ -12,7 +12,7 @@ public class FileLocations:StackPanel {
  public void Update(IEnumerable<KeyValuePair<string,string>> entries){
   Children.Clear();var files=entries.ToList();
   var columns=new Grid();columns.ColumnDefinitions.Add(new ColumnDefinition());columns.ColumnDefinitions.Add(new ColumnDefinition{Width=new GridLength(Theme.Gap)});columns.ColumnDefinitions.Add(new ColumnDefinition());
-  var main=Column("Main Discord","Your original profile.");var second=Column("Second Discord","The second profile and its active Vencord folder.");
+  var main=Column("Main Discord","Your original profile.");var second=Column("Dualcord","The second profile and its active Vencord folder.");
   foreach(var entry in files){if(entry.Key.StartsWith("Main ",StringComparison.Ordinal))main.Children.Add(Location(entry));else if(entry.Key.StartsWith("Second ",StringComparison.Ordinal)||entry.Key=="Separate Vencord data")second.Children.Add(Location(entry));}
   columns.Children.Add(main);Grid.SetColumn(second,2);columns.Children.Add(second);Children.Add(columns);
   var shared=Column("Shared files","The Discord installation and Dual Discord utility.");shared.Margin=new Thickness(0,Theme.Gap,0,0);

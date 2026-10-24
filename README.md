@@ -1,5 +1,21 @@
 # Dual Discord
 
+## Version 2.4
+
+The second profile is now named **Dualcord**, with a distinct monochrome rounded-square vector icon. The colorful stacked mark remains the manager logo. The new composition uses the Dashboard Icons symbol; the supplied Vecteezy link is only a style reference. Artwork is embedded in the executable and extracted locally, keeping the public ZIP compatible with existing updaters.
+
+Dualcord shortcuts now start the manager quietly in the background in both lifetime modes. Its normal shortcut or tray menu opens the manager. An availability restriction or launch error can still show an explanation.
+
+Separate Dualcord taskbar button is on by default. A Windows per-window AppUserModelID, icon and relaunch metadata distinguish second-profile windows while the manager runs. Turning this option off or fully exiting the manager restores the original window properties. Use the new Dualcord desktop shortcut for matching pin/relaunch behavior; Windows Explorer behavior can vary.
+
+Move Dualcord files is higher in Settings and uses the existing verified copy/switch operation. Dualcord must be closed and the destination empty. The original remains as a recovery copy.
+
+Reset app preferences asks for confirmation and creates a backup. It resets startup, sharing, appearance and window/lifetime preferences, while retaining profile/install paths, sign-ins, files and signed publisher policy. It does not reset account/server preferences inside Discord.
+
+Keyboard focus outlines appear after keyboard navigation; mouse input and restoration hide them. Caption controls have no hover boxes, About has no separate box, and secondary controls use subtle tonal borders.
+
+Warm launches reuse the existing profile/window and avoid duplicate process queries. Timings in the activity log measure launcher work, not Discord readiness. Plugin startup and experiment-cache warnings were observed; plugins, login data, GPU and network settings were not changed automatically. These changes do not guarantee a cure for every Discord/Vencord loading issue.
+
 A small Windows app for running two separate Discord accounts side by side. Created by **Wrakeeb** · [GitHub](https://github.com/w-rakeeb).
 
 ## Download and start

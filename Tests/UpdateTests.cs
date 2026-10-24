@@ -19,6 +19,7 @@ static class UpdateTests {
   Check("Unexpected executable is rejected",()=>Reject(()=>UpdatePackage.Validate(Zip("exe","Dual Discord.exe","other.exe"))));
   Check("Duplicate case-insensitive entries rejected",()=>Reject(()=>UpdatePackage.Validate(Zip("duplicate","Dual Discord.exe","dual discord.EXE"))));
   Check("Missing required app files rejected",()=>Reject(()=>UpdatePackage.Validate(Zip("missing","README.md"))));
+  Check("Missing runtime vector assets rejected",()=>Reject(()=>UpdatePackage.Validate(Zip("missing-vector","Dual Discord.exe","Dual Discord.exe.config","Dual Discord Updater.exe","Assets/Dual Discord.ico","Assets/Dual Discord.png","Assets/Discord.png"))));
   Check("Valid stable release metadata is accepted",()=>{var r=UpdateService.ParseRelease(Metadata("sha256:"+new string('a',64),false));Assert(r.Version==new Version(2,2,0)&&r.Sha256.Length==64&&r.Size==123);});
   Check("Release without a digest cannot be installed",()=>Reject(()=>UpdateService.ParseRelease(Metadata("",false))));
   Check("Prerelease releases are excluded",()=>Reject(()=>UpdateService.ParseRelease(Metadata("sha256:"+new string('a',64),true))));
