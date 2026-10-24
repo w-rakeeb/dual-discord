@@ -19,7 +19,7 @@ public class AppShell:Window {
  public readonly Grid Root=new Grid();public readonly Toast Toast=new Toast();
  readonly Grid body=new Grid();readonly ColumnDefinition railColumn=new ColumnDefinition{Width=new GridLength(Theme.Rail)};
  readonly Dictionary<string,NavItem> nav=new Dictionary<string,NavItem>();readonly ContentControl content=new ContentControl();
- readonly TextBlock version=Ui.Text("v2.0",Theme.NoteSize,"text.muted");
+ readonly TextBlock version=Ui.Text("v"+UpdateService.CurrentVersion,Theme.NoteSize,"text.muted");
  readonly ProcessOverview processDetails=new ProcessOverview();
  public readonly UpdateView Updates=new UpdateView();readonly TextBlock installationStatus=Ui.Text("Detecting Discord…",Theme.BodySize,"text.secondary");
  readonly FileLocations fileRows=new FileLocations();readonly Border errorHost=new Border();readonly InfoBanner missing=new InfoBanner("Discord wasn't found. Locate the installed app or repair the installation.",true);
@@ -128,3 +128,4 @@ public class AppShell:Window {
  public void Missing(bool value){errorHost.Visibility=value?Visibility.Visible:Visibility.Collapsed;MainProfile.Open.IsEnabled=!value&&!MainProfile.Busy;SecondProfile.Open.IsEnabled=!value&&!SecondProfile.Busy;}
 }
 }
+
