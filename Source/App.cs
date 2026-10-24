@@ -14,7 +14,7 @@ using Microsoft.Win32;
 using DualDiscord;
 
 static class App {
- static AppShell shell;static UiPreferences preferences;static bool refreshing,busy,closed,missing;static DispatcherTimer timer;static ReleaseInfo availableRelease;static bool updating;
+ static AppShell shell;static UiPreferences preferences;static bool refreshing,busy,closed,missing;static DispatcherTimer timer;static ReleaseInfo availableRelease;static bool updating;static readonly UpdateSchedule updateSchedule=new UpdateSchedule();
  [DllImport("dwmapi.dll")]static extern int DwmSetWindowAttribute(IntPtr handle,int key,ref int value,int size);
  [STAThread]static void Main(string[] args){
   try{
@@ -33,10 +33,10 @@ static class App {
   shell.AppearanceChanged=mode=>{preferences.Theme=mode;Theme.Apply(mode);ApplyBackdrop();SaveUi();shell.Toast.Show("Appearance updated");};
   shell.OpenFolder=path=>{try{if(Directory.Exists(path))Process.Start(new ProcessStartInfo(path){UseShellExecute=true});else shell.Toast.Show("This folder hasn't been created yet.");}catch{shell.Toast.Show("The folder couldn't be opened.");}};
   shell.CopyPath=path=>{try{Clipboard.SetText(path);shell.Toast.Show("Path copied");}catch{shell.Toast.Show("The clipboard is busy. Try again.");}};
-  shell.ExternalLink=url=>Process.Start(new ProcessStartInfo(url){UseShellExecute=true});shell.Locate=Locate;shell.Detect=async delegate{try{bool found=await Task.Run(()=>Engine.DetectInstallation());shell.Toast.Show(found?"Discord detected and saved":"Discord was not found. Select Discord.exe manually.");Files();await Refresh();}catch(Exception ex){shell.Toast.Show(ex.Message);}};shell.Updates.CheckRequested=async delegate{await CheckUpdates();};shell.Updates.InstallRequested=async delegate{await InstallUpdate();};
+  shell.ExternalLink=url=>Process.Start(new ProcessStartInfo(url){UseShellExecute=true});shell.Locate=Locate;shell.Detect=async delegate{try{bool found=await Task.Run(()=>Engine.DetectInstallation());shell.Toast.Show(found?"Discord detected and saved":"Discord was not found. Select Discord.exe manually.");Files();await Refresh();}catch(Exception ex){shell.Toast.Show(ex.Message);}};shell.ChooseStorage=async delegate{await ChooseStorage();};shell.Updates.CheckRequested=async delegate{await CheckUpdates();};shell.Updates.InstallRequested=async delegate{await InstallUpdate();};
   shell.SetOptions(Engine.Settings,false);Files();shell.SourceInitialized+=delegate{ApplyBackdrop();};
-  timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};timer.Tick+=async delegate{await Refresh();};
-  shell.Loaded+=async delegate{await Refresh();timer.Start();};
+  timer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(2)};timer.Tick+=async delegate{await Refresh();if(!updating&&updateSchedule.TakeCheck(Engine.Custom.AutoCheckUpdates,DateTime.UtcNow))await CheckUpdates();};
+  shell.Loaded+=async delegate{await Refresh();timer.Start();if(updateSchedule.TakeCheck(Engine.Custom.AutoCheckUpdates,DateTime.UtcNow))await CheckUpdates();};
   shell.Closing+=delegate{SaveUi();};shell.Closed+=delegate{closed=true;timer.Stop();SystemEvents.UserPreferenceChanged-=SystemChanged;};
   SystemEvents.UserPreferenceChanged+=SystemChanged;app.Run(shell);
  }
@@ -52,19 +52,55 @@ static class App {
   await Refresh();
  }
  static async Task Change(string name,bool value){
-  try{if(name=="StartApp"){Engine.Settings.StartApp=value;Engine.Save();}else if(name=="StartSecond"){Engine.Settings.StartSecond=value;Engine.Save();}else await Task.Run(delegate{Engine.SetSharing(name=="SyncDiscord",value);});shell.Toast.Show("Settings saved");Files();}
-  catch(Exception ex){Engine.Log("Setting change failed: "+ex.Message);shell.Toast.Show("The setting couldn't be changed. Quit the second profile and try again.");}
+  if(busy){await Refresh();return;}
+  try {
+   if(name=="StartApp"||name=="StartSecond"){
+    if(name=="StartApp")Engine.Settings.StartApp=value;else Engine.Settings.StartSecond=value;
+    Engine.Save();
+   } else if(name=="SyncDiscord"||name=="SyncVencord") {
+    await Task.Run(delegate{Engine.SetSharing(name=="SyncDiscord",value);});
+   } else {
+    if(name!="AutoCheckUpdates"&&Engine.GetInstance(true,Engine.Snapshot()).Count>0)
+     throw new IOException("Quit the second profile first.");
+    string previous=new JavaScriptSerializer().Serialize(Engine.Custom);
+    try {
+     switch(name){
+      case "AutoCheckUpdates":Engine.Custom.AutoCheckUpdates=value;break;
+      case "SyncAudio":Engine.Custom.SyncAudio=value;break;
+      case "SyncGraphics":Engine.Custom.SyncGraphics=value;break;
+      case "CopyThemes":Engine.Custom.CopyThemes=value;break;
+      default:throw new IOException("Unknown option.");
+     }
+     Engine.SaveCustom();
+    } catch {Engine.Custom=new JavaScriptSerializer().Deserialize<Customization>(previous);throw;}
+   }
+   shell.Toast.Show("Settings saved");Files();
+  } catch(Exception ex) {
+   Engine.Log("Setting change failed: "+ex.Message);
+   shell.Toast.Show(ex is IOException?ex.Message:"The setting could not be saved. Try again.");
+  }
   await Refresh();
  }
  static async Task Refresh(){
   if(refreshing||closed)return;refreshing=true;
   try{
    var values=await Task.Run(delegate{var all=Engine.Snapshot();return new[]{Engine.GetInstance(false,all),Engine.GetInstance(true,all)};});if(closed)return;
-   shell.SetStats(values[0],values[1],Directory.Exists(Engine.SecondData));shell.SetOptions(Engine.Settings,values[1].Count>0||busy);
+   shell.SetStats(values[0],values[1],Directory.Exists(Engine.SecondData));shell.SetOptions(Engine.Settings,values[1].Count>0||busy);shell.SetCustomization(Engine.Custom,StoragePath(Engine.ProfileRoot),values[1].Count>0||busy,Engine.Settings.SyncDiscord,Engine.Settings.SyncVencord,Engine.VencordAvailable());
    try{Engine.FindDiscord();missing=false;}catch{missing=true;}shell.Missing(missing);shell.SetInstallation(missing?"Discord was not found. Detect it or select the installed Discord.exe.":"Detected: "+StoragePath(Engine.DiscordRoot));
    if(busy)foreach(var card in new[]{shell.MainProfile,shell.SecondProfile}){card.Open.IsEnabled=false;card.Quit.IsEnabled=false;}
   }catch(Exception ex){Engine.Log("Status unavailable: "+ex.Message);if(!closed)shell.Toast.Show("Status is temporarily unavailable.");}
   finally{refreshing=false;}
+ }
+ sealed class PickerOwner:System.Windows.Forms.IWin32Window{public IntPtr Handle{get{return new WindowInteropHelper(shell).Handle;}}}
+ static async Task ChooseStorage(){
+  if(busy||updating)return;
+  using(var picker=new System.Windows.Forms.FolderBrowserDialog{Description="Choose a new or empty folder for the second Discord profile",ShowNewFolderButton=true,SelectedPath=Path.GetDirectoryName(StoragePath(Engine.ProfileRoot))}){
+   if(picker.ShowDialog(new PickerOwner())!=System.Windows.Forms.DialogResult.OK)return;
+   busy=true;shell.Toast.Show("Copying and verifying the second profile…");await Refresh();
+   try{await Task.Run(()=>Engine.RelocateSecond(picker.SelectedPath));Files();shell.Toast.Show("Profile folder updated. The original copy was kept.");}
+   catch(Exception ex){Engine.Log("Profile relocation failed: "+ex.Message);shell.Toast.Show(ex is IOException?ex.Message:"The profile could not be copied. Its original folder is still selected.");}
+   finally{busy=false;}await Refresh();
+  }
  }
  static void Locate(){
   var dialog=new OpenFileDialog{Title="Locate the installed Discord",Filter="Discord application|Discord.exe",CheckFileExists=true};
@@ -74,11 +110,12 @@ static class App {
  }
  static async Task CheckUpdates(){
   if(updating)return;updating=true;shell.Updates.State("Checking GitHub…",true);
-  try{var release=await Task.Run(()=>UpdateService.GetLatest());if(closed)return;availableRelease=release;bool newer=release.Version>UpdateService.ParseVersion(UpdateService.CurrentVersion);shell.Updates.State(newer?"Version "+release.Tag+" is available.":"You're up to date. Installed version: "+UpdateService.CurrentVersion,false,newer);}
+  try{var release=await Task.Run(()=>UpdateService.GetLatest());if(closed)return;availableRelease=release;bool newer=release.Version>UpdateService.ParseVersion(UpdateService.CurrentVersion);shell.Updates.State(newer?"Version "+release.Tag+" is available.":"You're up to date. Installed version: "+UpdateService.CurrentVersion,false,newer);if(newer&&updateSchedule.Announce(release.Tag)){shell.UpdateAlert.ShowRelease(release.Tag);if(shell.WindowState==WindowState.Minimized)shell.WindowState=WindowState.Normal;shell.Activate();}}
   catch(Exception ex){if(!closed)shell.Updates.State(ex is IOException?ex.Message:"The update check could not be completed.");}
   finally{updating=false;}
  }
  static async Task InstallUpdate(){
+  if(busy){shell.Toast.Show("Wait for the current profile action to finish before updating.");return;}
   if(updating||availableRelease==null||availableRelease.Version<=UpdateService.ParseVersion(UpdateService.CurrentVersion))return;updating=true;shell.Updates.State("Downloading and verifying the update…",true);
   try{
    string zip=await Task.Run(()=>UpdateService.Download(availableRelease));if(closed)return;

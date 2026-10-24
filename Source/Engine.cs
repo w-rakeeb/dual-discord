@@ -21,12 +21,14 @@ public sealed class Proc {
     public int Id, Parent; public string Command, Exe;
 }
 public sealed class Instance {
-    public bool Second; public int Count; public long Memory; public List<Proc> Processes = new List<Proc>(); public List<Proc> Roots = new List<Proc>();
+    public DateTime? Started; public bool Second; public int Count; public long Memory; public List<Proc> Processes = new List<Proc>(); public List<Proc> Roots = new List<Proc>();
 }
 public static class Engine {
     public static readonly string Home = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\');
-    public static readonly string ProfileRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Discord Duo", "Second Account");
-    public static readonly string SecondData = Path.Combine(ProfileRoot, "discord");
+    public static readonly string LegacyProfileRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Discord Duo", "Second Account");
+    public static Customization Custom = new Customization();
+    public static string ProfileRoot { get { return ProfileStorage.Resolve(Custom.SecondRoot,LegacyProfileRoot,DiscordRoot); } }
+    public static string SecondData { get { return Path.Combine(ProfileRoot,"discord"); } }
     public static readonly string MainData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "discord");
     public static readonly string MainVencord = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Vencord");
     public static readonly string PrivateVencord = Path.Combine(Home, "Data", "Vencord");
@@ -35,7 +37,7 @@ public static class Engine {
     public static string DiscordRoot { get { return String.IsNullOrEmpty(Connection.InstallRoot) ? StandardDiscordRoot : Connection.InstallRoot; } }
     static readonly JavaScriptSerializer Json = new JavaScriptSerializer { MaxJsonLength = 10000000 };
     public static Options Settings;
-    static readonly string[] SyncKeys = { "audioSubsystem", "useLegacyAudioDevice", "BACKGROUND_COLOR", "offloadAdmControls", "enableHardwareAcceleration", "asyncVideoInputDeviceInit", "enableH264MFElectron", "openH264Enabled" };
+
     delegate bool EnumCallback(IntPtr window, IntPtr data);
     [DllImport("user32.dll")] static extern bool EnumWindows(EnumCallback callback, IntPtr data);
     [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
@@ -48,7 +50,9 @@ public static class Engine {
         if (Settings == null) throw new Exception("App settings are unreadable.");
         string installationFile=Path.Combine(Home,"Settings","installation.json");
         Connection=Installation.Load(installationFile);
+        Custom=Customization.Load(Path.Combine(Home,"Settings","customization.json"));
         if(Installation.FindExecutable(Connection.InstallRoot)==null)DetectInstallation();
+        if(String.IsNullOrWhiteSpace(Custom.SecondRoot)){Custom.SecondRoot=ProfileRoot;SaveCustom();}
         Installation.PrepareSecond(ProfileRoot,PrivateVencord);
         if (!File.Exists(file)) Save(false);
     }
@@ -122,6 +126,7 @@ public static class Engine {
         while (changed) { changed = false; foreach (var p in all) if (ids.Contains(p.Parent) && ids.Add(p.Id)) changed = true; }
         foreach (var p in all.Where(p => PathMatches(p.Command, path))) ids.Add(p.Id);
         result.Processes = all.Where(p => ids.Contains(p.Id)).ToList(); result.Count = result.Processes.Count;
+        foreach(var root in result.Roots)try{using(var process=Process.GetProcessById(root.Id)){DateTime started=process.StartTime;if(!result.Started.HasValue||started<result.Started.Value)result.Started=started;}}catch(ArgumentException){}catch(System.ComponentModel.Win32Exception){}
         foreach (var p in result.Processes) try { using (var proc = Process.GetProcessById(p.Id)) result.Memory += proc.WorkingSet64; } catch (ArgumentException) { }
         return result;
     }
@@ -129,6 +134,7 @@ public static class Engine {
         if (second && startup && GetInstance(true, Snapshot()).Count > 0) return;
         if (second && GetInstance(true, Snapshot()).Count == 0) {
             if (Settings.SyncDiscord) SyncFromMain();
+            if(Custom.CopyThemes&&!Settings.SyncVencord&&VencordAvailable())PreferenceSharing.CopyThemes(Path.Combine(MainVencord,"themes"),Path.Combine(PrivateVencord,"themes"));
             SetClosePolicy();
         }
         string exe = FindDiscord(); var info = new ProcessStartInfo(exe) { UseShellExecute = false, WorkingDirectory = Path.GetDirectoryName(exe) };
@@ -150,7 +156,7 @@ public static class Engine {
         if (!File.Exists(source)) return;
         var main = Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(source));
         var second = File.Exists(target) ? Json.Deserialize<Dictionary<string, object>>(File.ReadAllText(target)) : new Dictionary<string, object>();
-        foreach (string key in SyncKeys) if (main.ContainsKey(key)) second[key] = main[key];
+        PreferenceSharing.Apply(main,second,Custom);
         AtomicWrite(target, Json.Serialize(second));
         Log("Copied supported local Discord preferences from main to second");
     }
@@ -188,6 +194,16 @@ public static class Engine {
         if (GetInstance(true, Snapshot()).Count > 0) throw new Exception("Quit the second Discord before changing sharing.");
         if (discord) Settings.SyncDiscord = enabled; else Settings.SyncVencord = enabled;
         Save(); Log((discord ? "Discord preference sync" : "Vencord sharing") + (enabled ? " enabled" : " disabled"));
+    }
+    public static void SaveCustom(){Customization.Save(Path.Combine(Home,"Settings","customization.json"),Custom);}
+    public static void RelocateSecond(string target){
+        if(GetInstance(true,Snapshot()).Count>0)throw new IOException("Quit the second profile before changing its folder.");
+        string source=ProfileRoot;
+        ProfileStorage.CopyVerified(source,target,new[]{MainData,MainVencord,PrivateVencord,Home});
+        if(GetInstance(true,Snapshot()).Count>0)throw new IOException("The second profile started during copying. Its original folder is still selected.");
+        string previous=Custom.SecondRoot;Custom.SecondRoot=Path.GetFullPath(target);
+        try{SaveCustom();}catch{Custom.SecondRoot=previous;throw;}
+        Log("Second profile storage changed; original retained at "+Installation.Physical(source));
     }
     public static void Log(string text) { File.AppendAllText(Path.Combine(Home, "Logs", "activity.log"), DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + " " + text + Environment.NewLine); }
 }

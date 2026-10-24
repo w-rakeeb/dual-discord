@@ -34,7 +34,7 @@ namespace DualDiscord {
  public sealed class ProfileActivity:StackPanel {
   readonly string profile;
   readonly StatusPill status=new StatusPill();
-  readonly TextBlock processes,memory,pid;
+  readonly TextBlock processes,memory,pid;readonly TextBlock activity=Ui.Text("Not running",Theme.NoteSize,"text.secondary");
   public ProfileActivity(string name){
    profile=name;
    var heading=new Grid();heading.ColumnDefinitions.Add(new ColumnDefinition());
@@ -45,7 +45,7 @@ namespace DualDiscord {
    var metrics=new UniformGrid{Columns=3,Margin=new Thickness(0,Theme.Gap,0,0)};
    processes=Metric(metrics,"Processes");memory=Metric(metrics,"Memory");pid=Metric(metrics,"Process ID");
    pid.ToolTip="The main process for this profile. Find this ID in Task Manager → Details.";
-   Children.Add(metrics);Update(new Instance());
+   Children.Add(metrics);activity.Margin=new Thickness(0,Theme.Gap,0,0);Children.Add(activity);Update(new Instance());
   }
   static TextBlock Metric(Panel parent,string name){
    var column=new StackPanel{Margin=new Thickness(0,0,Theme.Space,0)};
@@ -56,6 +56,7 @@ namespace DualDiscord {
   }
   public void Update(Instance instance){
    bool running=instance.Count>0;
+   if(instance.Started.HasValue){var elapsed=DateTime.Now-instance.Started.Value;activity.Text="Started "+instance.Started.Value.ToString("HH:mm")+" · Running "+(elapsed.TotalHours>=1?((int)elapsed.TotalHours)+"h ":"")+elapsed.Minutes+"m";}else activity.Text=running?"Running · start time unavailable":"Not running";
    status.Set(running?"Running":"Closed",running?"success":"neutral",profile);
    processes.Text=instance.Count.ToString("N0");memory.Text=(instance.Memory/1048576).ToString("N0")+" MB";
    string ids=String.Join(", ",instance.Roots.Select(p=>p.Id.ToString()));

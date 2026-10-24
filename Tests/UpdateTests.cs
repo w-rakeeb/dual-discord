@@ -9,7 +9,7 @@ static class UpdateTests {
  static void Assert(bool value){if(!value)throw new Exception("Assertion failed");}
  static void Reject(Action work){try{work();}catch(Exception){return;}throw new Exception("Expected rejection");}
  static string Zip(string name,params string[] files){string file=Path.Combine(root,name+".zip");using(var zip=ZipFile.Open(file,ZipArchiveMode.Create))foreach(string path in files){var entry=zip.CreateEntry(path);using(var writer=new StreamWriter(entry.Open()))writer.Write("fixture");}return file;}
- public static int Run(){root=Path.Combine(Path.GetTempPath(),"DualDiscordUpdateTests-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
+ public static int Run(){root=Path.Combine(AppDomain.CurrentDomain.BaseDirectory,"DualDiscordUpdateTests-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
   Check("Release version comparison is numeric",()=>Assert(UpdateService.ParseVersion("v2.10.0")>UpdateService.ParseVersion("2.9.0")));
   Check("Prerelease version tag rejected",()=>Reject(()=>UpdateService.ParseVersion("v2.2.0-beta")));
   Check("Asset URL pinned to this repository",()=>{Assert(UpdateService.TrustedAsset("https://github.com/w-rakeeb/dual-discord/releases/download/v2.1.0/Dual-Discord-Windows.zip"));Assert(!UpdateService.TrustedAsset("https://github.com/other/dual-discord/releases/download/v2.1.0/a.zip"));Assert(!UpdateService.TrustedAsset("http://github.com/w-rakeeb/dual-discord/releases/download/v2/a.zip"));});

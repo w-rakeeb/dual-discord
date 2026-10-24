@@ -14,10 +14,10 @@ If Discord is not detected, open **Settings → Discord installation → Locate 
 ## Profiles and files
 
 - Main uses your normal Discord data under Windows Roaming AppData.
-- Second uses `%LOCALAPPDATA%\Discord Duo\Second Account\discord`. The older folder name is retained for compatibility with existing profiles.
+- Fresh second profiles use `Discord installation\Profiles\Second\discord`. Existing second profiles retain their previous location, including `%LOCALAPPDATA%\Discord Duo\Second Account\discord`. Change it in Settings when the second profile is closed.
 - Private Vencord data lives under the manager's `Data\Vencord` folder. It starts empty on a fresh setup.
 - Files shows the actual storage locations, including directory redirects. This app does not require a D: drive or a specific Windows username.
-- The main card uses Discord's official symbol; the second uses the stacked Dual Discord app logo.
+- The main card uses the Discord symbol from [Dashboard Icons](https://dashboardicons.com/icons/discord); the second uses the stacked Dual Discord app logo.
 
 Local audio/graphics preference sync and Vencord sharing are optional. A fresh setup defaults to separate settings. Existing sharing and startup choices are retained. These features do not copy Discord login tokens, cookies or local storage. Account/server preferences stored by Discord follow the signed-in account.
 
@@ -29,7 +29,7 @@ Open **About → Updates → Check for updates**. When a newer stable version is
 
 The app uses the latest stable public release from this repository, requires GitHub's SHA-256 asset digest, validates the ZIP and replaces only allowlisted application files. It keeps an app-file backup under `Backups\App-update-*`. Settings, account data, Vencord folders, logs and local folder redirects are not replaced. A failed file transaction attempts rollback; see `Logs\last-update.txt` and the app backups if recovery is needed.
 
-Offline requests, GitHub request limits, missing releases and invalid packages are reported as errors rather than as “up to date.” Updates are user initiated. No GitHub sign-in is needed to check or download public releases.
+Offline requests, GitHub request limits, missing releases and invalid packages are reported as errors rather than as “up to date.” Checks can run automatically; downloads and installation require your click. No GitHub sign-in is needed to check or download public releases.
 
 ## Requirements and verification limits
 
@@ -50,3 +50,15 @@ Run `Source\Build.ps1` in PowerShell on Windows with .NET Framework 4.8 availabl
 ## Removal
 
 Turn off startup options in Settings, close the manager and keep a backup of your profile data before removing files. Deleting a manager shortcut does not uninstall Discord. No uninstall operation is performed by this app.
+
+## Version 2.2: storage, sharing and update notices
+
+- Logos use Dashboard Icons SVG artwork rendered as native vectors. The second profile retains the stacked Dual Discord identity.
+- Settings → Second profile storage → Change folder copies the second profile to a new or empty folder, verifies file contents with SHA-256, then saves that location. Quit the second profile first. The original folder stays as a recovery copy, including its private account data; remove it only when you no longer need it. Copy failure keeps the old location selected, and may leave an incomplete destination to review.
+- Fresh installations default to `Discord installation/Profiles/Second`. Existing installations keep their existing second-profile location. Private Vencord stays in the utility's own Data/Vencord folder and appears separately in Files.
+- Customize sharing selects supported local audio or graphics preferences under the existing sync switch. These copy at second-profile launch, not continuously. Account/server settings remain managed by Discord.
+- Optional CSS-only Vencord theme copying works with separate Vencord storage. Replaced CSS files are backed up under the private themes/Backups folder. Linked files, dependencies/assets and account/plugin settings are not copied; CSS remote imports retain their original behavior.
+- Automatic update checks are enabled by default at manager startup and every six hours while it is open. A newer stable release displays an in-app foreground notice once per version per session. Later dismisses it; About always offers a manual check. Download/install still requires a click. Turn automatic checking off in Settings.
+- Process details now includes the local profile's start time and running duration. It does not expose which Discord account is signed in and does not report remote usage.
+
+Discord presence supports desktop/mobile/web categories. It does not distinguish a normal desktop session from a second profile launched by this utility. Server administration cannot reliably identify Dual Discord users through that status. No tokens, account identifiers, telemetry or remote admin dashboard are collected.

@@ -14,4 +14,5 @@ jobs:
         shell: pwsh
         run: |
           ./Source/Build.ps1
+          ./Tests/RunIntegration.ps1
           ./Source/Package.ps1

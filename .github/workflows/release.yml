@@ -22,6 +22,7 @@ jobs:
           if ($env:RELEASE_TAG -ne "v$version") { throw 'Tag must match CurrentVersion.' }
           ./Tests/Run.ps1
           ./Source/Build.ps1
+          ./Tests/RunIntegration.ps1
           ./Source/Package.ps1
       - name: Publish clean package
         shell: pwsh

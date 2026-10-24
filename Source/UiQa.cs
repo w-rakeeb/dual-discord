@@ -24,8 +24,9 @@ public static class UiQa {
    }
   }
   Theme.Apply("Dark",false);
-  foreach(string state in new[]{"empty","error","disabled","loading","hover","pressed","keyboard-focus"}){
+  foreach(string state in new[]{"empty","error","disabled","loading","hover","pressed","keyboard-focus","update-available"}){
    var shell=Fixture(home);shell.LayoutForWidth(900);
+   if(state=="update-available")shell.UpdateAlert.ShowRelease("2.3.0");
    if(state=="empty")shell.SecondProfile.Update(new Instance{Second=true},false);
    if(state=="error")shell.Missing(true);
    if(state=="disabled"){shell.Navigate("Settings",false);shell.SetOptions(new Options(),true);}
@@ -38,11 +39,11 @@ public static class UiQa {
   Before(home,output);
   File.WriteAllText(Path.Combine(output,"matrix.json"),new JavaScriptSerializer().Serialize(results));
   File.WriteAllText(Path.Combine(output,"layout-checks.txt"),layoutIssues.Count==0?"PASS: visible, arranged after-state controls meet the 32-DIP hit-target minimum; after-state text is at least 12 DIP. Scrollable content is intentionally allowed beyond the viewport.\r\n":String.Join(Environment.NewLine,layoutIssues));
-  File.WriteAllText(Path.Combine(output,"QA-method.txt"),"96 native WPF renders: dark/light/high-contrast token mapping × 100/125/150/200% pixel density × 720×520 and 1280×800 × four pages. Windows global DPI, OS theme and OS high-contrast settings were not changed. These are application-owned render fixtures, not claims of physical monitor tests. State fixtures are simulated and contain no account data. Hover/focus fixture limitations are documented in the review report. Engine.cs and Settings/app.json must retain their baseline hashes.\r\n");
+  File.WriteAllText(Path.Combine(output,"QA-method.txt"),"96 native WPF renders: dark/light/high-contrast token mapping × 100/125/150/200% pixel density × 720×520 and 1280×800 × four pages. Windows global DPI, OS theme and OS high-contrast settings were not changed. These are application-owned render fixtures, not claims of physical monitor tests. State fixtures are simulated and contain no account data. Hover/focus fixture limitations are documented in the review report. Profile fixtures contain no account data. Live business settings are verified separately.\r\n");
   app.Shutdown();
  }
  public static AppShell Fixture(string home){
-  var shell=new AppShell(home);var main=new Instance{Count=6,Memory=440*1048576L};main.Roots.Add(new Proc{Id=12000});var second=new Instance{Second=true};shell.SetStats(main,second,true);shell.SetOptions(new Options(),false);
+  var shell=new AppShell(home);var main=new Instance{Count=6,Memory=440*1048576L};main.Roots.Add(new Proc{Id=12000});var second=new Instance{Second=true};shell.SetStats(main,second,true);shell.SetOptions(new Options(),false);shell.SetCustomization(new Customization(),Path.Combine(home,"Profiles","Second"),false,false,false,true);
   shell.SetFiles(new[]{new KeyValuePair<string,string>("Main profile data",Path.Combine(home,"Profiles","Main")),new KeyValuePair<string,string>("Second profile data",Path.Combine(home,"Profiles","Second","Second Account","discord")),new KeyValuePair<string,string>("Main Vencord data",Path.Combine(home,"Vencord","Main")),new KeyValuePair<string,string>("Installed Discord",Path.Combine(home,"Runtime","Discord")),new KeyValuePair<string,string>("Activity logs",Path.Combine(home,"Logs")),new KeyValuePair<string,string>("App and source files",home),new KeyValuePair<string,string>("Second Vencord data",Path.Combine(home,"Data","Vencord"))});return shell;
  }
  static void Render(Window shell,double width,double height,double scale,string file){
