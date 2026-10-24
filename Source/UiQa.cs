@@ -19,7 +19,7 @@ public static class UiQa {
    Theme.Apply(mode=="Light"?"Light":"Dark",mode=="HighContrast");
    foreach(double scale in new[]{1.0,1.25,1.5,2.0})foreach(bool wide in new[]{false,true}){
     var shell=Fixture(home);double width=wide?1280:720,height=wide?800:520;shell.Width=width;shell.Height=height;shell.LayoutForWidth(width);
-    foreach(string page in new[]{"Profiles","Settings","Files","About"}){shell.Navigate(page,false);string name=mode+"-"+(int)(scale*100)+"-"+(wide?"wide":"min")+"-"+page;Render(shell,width,height,scale,Path.Combine(output,name+".png"));results.Add(new{File=name+".png",Theme=mode,Scale=scale,Width=width,Height=height,Page=page,Kind="Native WPF offscreen render"});}
+    foreach(string page in new[]{"Profiles","Settings","Files","About"}){shell.Navigate(page,false);string name=mode+"-"+(int)(scale*100)+"-"+(wide?"wide":"min")+"-"+page;Render(shell,width,height,scale,Path.Combine(output,name+".png"));results.Add(new{File=name+".png",Theme=mode,Scale=scale,Width=width,Height=height,Page=page,Kind="Native WPF offscreen render"});if(page=="Settings"){foreach(string category in new[]{"Sharing","Storage","Updates","Appearance"}){shell.SettingsTabs.Select(category);Render(shell,width,height,scale,Path.Combine(output,name+"-"+category+".png"));}shell.SettingsTabs.Select("General");}}
     shell.Close();
    }
   }
@@ -39,7 +39,7 @@ public static class UiQa {
    shell.Close();
   }
   foreach(bool locked in new[]{false,true}){
-   var shell=Fixture(home);shell.Navigate("Settings",false);shell.SetCustomization(new Customization{CopyVencordPlugins=true,CopyVencordPluginSettings=true,CopyVencordPreferences=true,CopyVencordAppearance=true,CopyQuickCss=true},Path.Combine(home,"Profiles","Second"),locked,false,false,true);
+   var shell=Fixture(home);shell.Navigate("Settings",false);shell.SettingsTabs.Select("Sharing");shell.SetCustomization(new Customization{CopyVencordPlugins=true,CopyVencordPluginSettings=true,CopyVencordPreferences=true,CopyVencordAppearance=true,CopyQuickCss=true},Path.Combine(home,"Profiles","Second"),locked,false,false,true);
    var row=shell.SettingsRows["CopyVencordPlugins"];DependencyObject current=row;while(current!=null){var expander=current as Expander;if(expander!=null)expander.IsExpanded=true;current=LogicalTreeHelper.GetParent(current);}
    string file=Path.Combine(output,locked?"state-vencord-locked.png":"state-vencord-copy.png");Render(shell,900,780,1,file);
    current=row;while(current!=null){var scroll=current as ScrollViewer;if(scroll!=null){scroll.ScrollToVerticalOffset(scroll.VerticalOffset+row.TranslatePoint(new Point(0,0),scroll).Y-Theme.RowHeight-Theme.Gap);break;}current=VisualTreeHelper.GetParent(current);}
@@ -48,7 +48,7 @@ public static class UiQa {
   Before(home,output);
   File.WriteAllText(Path.Combine(output,"matrix.json"),new JavaScriptSerializer().Serialize(results));
   File.WriteAllText(Path.Combine(output,"layout-checks.txt"),layoutIssues.Count==0?"PASS: visible, arranged after-state controls meet the 32-DIP hit-target minimum; after-state text is at least 12 DIP. Scrollable content is intentionally allowed beyond the viewport.\r\n":String.Join(Environment.NewLine,layoutIssues));
-  File.WriteAllText(Path.Combine(output,"QA-method.txt"),"96 native WPF renders: dark/light/high-contrast token mapping × 100/125/150/200% pixel density × 720×520 and 1280×800 × four pages. Windows global DPI, OS theme and OS high-contrast settings were not changed. These are application-owned render fixtures, not claims of physical monitor tests. State fixtures are simulated and contain no account data. Hover/focus fixture limitations are documented in the review report. Profile fixtures contain no account data. Live business settings are verified separately.\r\n");
+  File.WriteAllText(Path.Combine(output,"QA-method.txt"),"192 native WPF renders (including five Settings categories): dark/light/high-contrast token mapping × 100/125/150/200% pixel density × 720×520 and 1280×800 × four pages. Windows global DPI, OS theme and OS high-contrast settings were not changed. These are application-owned render fixtures, not claims of physical monitor tests. State fixtures are simulated and contain no account data. Hover/focus fixture limitations are documented in the review report. Profile fixtures contain no account data. Live business settings are verified separately.\r\n");
   app.Shutdown();
  }
  public static AppShell Fixture(string home){

@@ -31,6 +31,7 @@ namespace DualDiscord {
     byte[] buffer=new byte[4096];int count;while((count=stream.Read(buffer,0,buffer.Length))>0){memory.Write(buffer,0,count);if(memory.Length>65536)throw new IOException("Policy is too large.");}return Encoding.UTF8.GetString(memory.ToArray());
    }
   }
-  public static void EnsureAllowed(string home){if(!Ready)Check(home);if(!Ready)throw new IOException("Availability is still being checked. Try again in a moment.");string reason=BlockReason;if(reason.Length>0)throw new IOException(reason);}
+  public static void EnsureAllowed(string home){EnsureAllowed(home,()=>Check(home));}
+  internal static void EnsureAllowed(string home,Action check){if(!Ready||Due)check();if(!Ready)throw new IOException("Availability is still being checked. Try again in a moment.");string reason=BlockReason;if(reason.Length>0)throw new IOException(reason);}
  }
 }

@@ -10,6 +10,12 @@ class NativePresentationTests {
  static void Assert(bool value,string name){if(!value)throw new Exception(name);count++;Console.WriteLine("PASS "+name);}
  [STAThread]static int Main(string[] args){try{
   string home=Path.GetFullPath(args[0]);Branding.Ensure(home);
+  var app=new Application{ShutdownMode=ShutdownMode.OnExplicitShutdown};Theme.Apply("Dark");Theme.InitStyles();var activity=new ProfileActivity("Fixture");Assert(System.Windows.Automation.AutomationProperties.GetName(FindPid(activity)).EndsWith("process ID 0"),"Closed profile process ID is zero");
+  string opened=null;var credit=new CreatorCredit(url=>opened=url);var github=(System.Windows.Controls.Button)credit.Children[1];github.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Assert(github.Content is System.Windows.Shapes.Path&&opened==CreatorCredit.GitHubUrl,"GitHub vector icon retains the accessible link action");
+  var shell=UiQa.Fixture(home);shell.LayoutForWidth(900);var root=(FrameworkElement)shell.Content;root.Width=900;root.Height=620;root.Measure(new Size(900,620));root.Arrange(new Rect(0,0,900,620));root.UpdateLayout();
+  var heading=FindNamed<System.Windows.Controls.TextBlock>(root,"Page title: Profiles");var navigation=FindNamed<System.Windows.Controls.Button>(root,"Profiles");double delta=Math.Abs(heading.TranslatePoint(new Point(0,heading.ActualHeight/2),root).Y-navigation.TranslatePoint(new Point(0,navigation.ActualHeight/2),root).Y);Assert(delta<=Theme.Space,"Page heading and sidebar first row centers align within grid tolerance ("+delta+")");
+  bool checkedUpdates=false;shell.Updates.CheckRequested=()=>checkedUpdates=true;shell.QuickUpdate.RaiseEvent(new RoutedEventArgs(System.Windows.Controls.Button.ClickEvent));Assert(checkedUpdates&&shell.Page=="About","Version-side update icon opens the checker and requests a check");
+  Assert(shell.SettingsTabs.Items.Count==5&&shell.SettingsTabs.SelectedSection=="General","Settings opens on the General tab with five categories");shell.Navigate("Settings",false);shell.SettingsTabs.Select("Sharing");bool callback=false;shell.OptionChanged=(name,value)=>{if(name=="SyncDiscord"&&value)callback=true;};shell.SettingsRows["SyncDiscord"].Toggle.IsChecked=true;shell.SettingsTabs.Select("Storage");shell.SettingsTabs.Select("Sharing");Assert(callback&&shell.SettingsRows["SyncDiscord"].Toggle.IsChecked==true,"Moving between Settings sections preserves controls and callbacks");shell.Close();
   var main=(DrawingImage)LogoAssets.LoadProfile(Path.Combine(home,"Assets","Discord.png"));var second=(DrawingImage)LogoAssets.LoadProfile(Path.Combine(home,"Assets","Dualcord.png"));
   Assert(main.Drawing.Bounds==second.Drawing.Bounds,"Profile logos have identical visible canvas bounds");
   var a=(DrawingGroup)main.Drawing;var b=(DrawingGroup)second.Drawing;
@@ -28,4 +34,6 @@ class NativePresentationTests {
   }
   Console.WriteLine(count+" native presentation checks passed");return 0;
  }catch(Exception e){Console.WriteLine("FAIL "+e);return 1;}}
+ static System.Windows.Controls.TextBlock FindPid(System.Windows.DependencyObject node){var text=node as System.Windows.Controls.TextBlock;if(text!=null&&System.Windows.Automation.AutomationProperties.GetName(text).Contains("process ID"))return text;for(int i=0;i<System.Windows.Media.VisualTreeHelper.GetChildrenCount(node);i++){var found=FindPid(System.Windows.Media.VisualTreeHelper.GetChild(node,i));if(found!=null)return found;}return null;}
+ static T FindNamed<T>(DependencyObject node,string name)where T:DependencyObject{if(node is T&&System.Windows.Automation.AutomationProperties.GetName(node)==name)return (T)node;for(int i=0;i<VisualTreeHelper.GetChildrenCount(node);i++){var found=FindNamed<T>(VisualTreeHelper.GetChild(node,i),name);if(found!=null)return found;}return null;}
 }

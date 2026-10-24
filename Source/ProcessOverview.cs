@@ -60,7 +60,7 @@ namespace DualDiscord {
    status.Set(running?"Running":"Closed",running?"success":"neutral",profile);
    processes.Text=instance.Count.ToString("N0");memory.Text=(instance.Memory/1048576).ToString("N0")+" MB";
    string ids=String.Join(", ",instance.Roots.Select(p=>p.Id.ToString()));
-   pid.Text=running&&ids.Length>0?ids:"—";
+   pid.Text=running&&ids.Length>0?ids:"0";
    pid.ToolTip=running&&ids.Length>0?"Find "+ids+" in Task Manager → Details.":"No main process is running.";
    Ui.Name(processes,profile+", "+processes.Text+" processes");
    Ui.Name(memory,profile+", memory "+memory.Text);Ui.Name(pid,profile+", process ID "+pid.Text);
